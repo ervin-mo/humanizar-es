@@ -33,6 +33,12 @@ español escrito por personas en 2014 sacó 46.5% en ZeroGPT**, y GPTZero lo mar
 IA. Los detectores se equivocan con texto humano; por eso este proyecto mide siempre
 contra un control humano y nunca promete «pasar todos los detectores».
 
+Y un resultado en contra, que también cuenta: en Grammarly, esa versión bajó solo a
+**75%**, y una reescritura completa posterior, con **cero** frases típicas de IA y
+mejores números en todas las métricas de este repo, sacó **100%**. Quitar las marcas no
+basta cuando el texto entero lo vuelve a escribir un modelo; lo que más falta es voz
+propia del autor.
+
 Es un solo texto de prueba: una demostración bien controlada, no una estadística. El
 detalle, con sus limitaciones, está en [`references/evidencia.md`](references/evidencia.md).
 
@@ -189,8 +195,9 @@ score, límites de uso gratuito): [`references/detectores.md`](references/detect
 2. **Los detectores marcan texto humano**, sobre todo en registro formal.
 3. **Un detector puede cambiar de opinión** sobre el mismo texto el mismo día (le pasó
    a GPTZero con el Quijote).
-4. **Perplejidad y burstiness no miden «humanidad»**: el texto humano comparable del
-   benchmark fue *más* previsible que el generado.
+4. **Las métricas de este repo no predicen a los detectores comerciales.** La versión
+   con mejores números sacó 100% en Grammarly. Perplejidad y burstiness tampoco miden
+   «humanidad»: el texto humano comparable fue *más* previsible que el generado.
 5. **Un solo texto de prueba**, académico. No sabemos cuánto se generaliza.
 6. **Analizar varios documentos del mismo autor** revela patrones que uno solo no
    muestra; humanizar un texto no protege de eso.

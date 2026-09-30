@@ -174,9 +174,14 @@ detector y leyó peor: más no es mejor.
 4. **Perplejidad y burstiness no son «humanidad».** En el benchmark, el texto humano
    comparable (Wikipedia 2014) tuvo *menos* perplejidad que el ensayo generado. Son
    las señales que miran los detectores, no un retrato de cómo escribe la gente.
-5. **Un solo texto de prueba.** El benchmark es un caso bien controlado, no una
+5. **Las métricas no predicen a Grammarly.** Una reescritura completa hecha por un
+   modelo, con cero delatores y mejores números que otra versión, sacó 100% contra 75%.
+   No prometas que bajar los delatores bajará el score. Lo que un modelo no puede
+   aportar es la voz del autor: pídele un ejemplo, una opinión o una anécdota suya y
+   déjalos en su forma de decirlo.
+6. **Un solo texto de prueba.** El benchmark es un caso bien controlado, no una
    estadística. Diferencias de pocos puntos no significan nada.
-6. **Comparar varios documentos del mismo autor** revela patrones que un documento
+7. **Comparar varios documentos del mismo autor** revela patrones que un documento
    aislado esconde. Humanizar uno no protege de ese análisis.
 
 ## Uso responsable

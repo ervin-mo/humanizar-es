@@ -69,9 +69,19 @@ texto enviado, así que no fue un error de lectura: el detector cambió de opini
 
 ### Grammarly
 
-Solo se pudo medir el original (100% IA). Después del primer escaneo dejó de arrancar
-nuevos escaneos sin mostrar error (detalle en `detectores.md` §5). **Es la limitación
-principal del benchmark**: la mejora no se verificó en el detector de partida.
+En la corrida automatizada solo se pudo medir el original (100% IA): después del primer
+escaneo dejó de arrancar nuevos escaneos (detalle en `detectores.md` §5). Después se
+midió a mano, con sesión iniciada:
+
+| Texto | Grammarly |
+|---|---|
+| 00 original | 100% IA |
+| 01 reglas de estilo | **75% IA** |
+| 04 reescritura completa | **100% IA** |
+
+La variante 04 (`ejemplos/04-reescritura-completa.txt`) se escribió después, con la
+guía corregida: un modelo reescribió el texto entero quitando todos los delatores. Ver §4b.
+Cada número es un solo escaneo; no se ha comprobado si Grammarly los repite.
 
 ---
 
@@ -119,6 +129,23 @@ del humano comparable (0.51). La desviación absoluta, en cambio, casi no cambi�
 Las variantes medidas conservan delatores que la guía manda quitar («Lejos de
 reducirse», «Resulta indispensable», «En última instancia», «no es X: es Y»). Bajaron en el detector
 con ellos dentro; una edición más cuidadosa los quitaría.
+
+### 4b. Lo que la variante 04 enseñó
+
+Por todas las métricas de este repositorio, la 04 era «más humana» que la 01: cero
+delatores (contra 3), variación de oración 0.58 (contra 0.53), perplejidad 17.13
+(contra 16.50) y burstiness 54.82 (contra 38.94). Grammarly la marcó **100% IA**; a la
+01, 75%.
+
+Conclusión: **ni `estilo.py` ni el instrumento local predicen a Grammarly.** Sirven
+para encontrar delatores concretos y comparar versiones, no para anticipar el veredicto
+de un clasificador comercial.
+
+Hipótesis, sin comprobar: Grammarly reconoce la prosa fluida de un modelo aunque no
+tenga los delatores de la lista. La 04 es una reescritura completa hecha por un modelo;
+la 01 conserva más giros ásperos («La metafísica. Ahí está…», «Preguntas viejas, más o
+menos, con ropa nueva»). Si es así, lo que baja el score no es quitar marcas sino meter
+lo que un modelo no escribe: voz, ejemplos y decisiones del autor.
 
 ---
 
@@ -197,15 +224,19 @@ Lo que el benchmark sostiene, con su tamaño de muestra en mente:
 6. **Sin control humano en la misma corrida, un detector degradado se lee como «la
    humanización falló».** Por eso el control es obligatorio.
 
+7. **Las métricas propias no predicen a Grammarly**: la variante con mejores números
+   (04) sacó 100%, y la 01 sacó 75% (§4b).
+
 Lo que **no** sostiene: que las palancas funcionen igual en otros textos o registros,
-qué palanca pesa más, ni nada sobre Grammarly después de humanizar.
+qué palanca pesa más, ni que una reescritura hecha solo por un modelo baje en
+Grammarly (la evidencia apunta a lo contrario).
 
 ---
 
 ## 8. Limitaciones
 
 1. **Un solo texto de prueba**, de un solo registro (académico).
-2. **Grammarly no se pudo medir** después de humanizar.
+2. **Grammarly se midió a mano, un escaneo por texto**, sin repetir y sin control humano.
 3. **GPTZero no fue reproducible** en la misma sesión.
 4. **Las variantes las escribió un modelo**, en una pasada. No se comparó contra
    reescrituras hechas por personas.
