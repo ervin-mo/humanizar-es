@@ -1,0 +1,35 @@
+# Conceptos intocables del ensayo de ejemplo (00-original.txt).
+# Son los 27 que se verificaron en el benchmark. Uso:
+#   python3 scripts/verificar_fidelidad.py ejemplos/00-original.txt \
+#       ejemplos/01-reglas-estilo.txt --conceptos ejemplos/conceptos-metafisica.txt
+#
+# Una linea por concepto. Variantes separadas por |. Se ignoran mayusculas y
+# acentos. Palabra completa con plural opcional; con * al final, por prefijo.
+
+Aristóteles | Estagirita
+ousía
+Tomás de Aquino | Aquino
+potencia y acto
+no contradicción
+contingencia
+Descartes
+res cogitans
+res extensa
+Kant
+antinomias
+noúmeno
+Crítica de la razón pura
+Carnap
+positivismo lógico
+Heidegger
+Dasein
+olvido del ser
+mundos posibles
+identidad personal
+emergencia | emergentismo
+física cuántica
+cosmología
+inteligencia artificial
+subatómic*
+pragmatismo ciego
+compromisos ontológicos

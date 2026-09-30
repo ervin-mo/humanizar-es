@@ -1,0 +1,241 @@
+# Evidencia: el benchmark detrás de esta skill
+
+Todo lo que la skill recomienda está respaldado aquí por una medición propia o por
+literatura. Lo que no tiene respaldo se marca como tal.
+
+Mediciones web: 30 de septiembre de 2026. Mediciones locales: repetidas el mismo día
+con la versión publicada de los scripts.
+
+---
+
+## 1. Diseño
+
+**Texto de prueba:** ensayo «El enigma del ser: Fundamentos, crisis y vigencia de la
+metafísica», generado con IA. ~725 palabras, registro académico. Grammarly le dio
+«100% of this text appears to be AI-generated», resultado que se reprodujo antes de
+empezar.
+
+**Variantes:**
+
+| # | Método | Qué se hizo |
+|---|---|---|
+| 00 | línea base | el texto sin tocar |
+| 01 | reglas de estilo | las palancas de `tecnicas.md` aplicadas respetando el registro académico |
+| 02 | cadena de traducción | ES →(LLM, temp 1.3)→ ZH →(LLM, temp 1.3)→ JA →(LLM)→ FI →(LLM)→ ES |
+| 03 | adversarial | reescritura agresiva: fragmentos, párrafos de una línea, subjetividad, ritmo forzado |
+
+Las variantes 01 y 03 las escribió un modelo siguiendo las reglas, en una sola pasada,
+sin iterar contra el detector. La 02 la produjo `scripts/cadena_llm.py`.
+
+**Controles humanos** (`ejemplos/controles/`, con su origen y licencia en el `LEEME.md`):
+
+- Quijote, 1605 — solo para comprobar que un instrumento distingue algo
+- Wikipedia «Metafísica», revisión de dic-2014 — académico moderno, mismo tema, anterior
+  a los LLM actuales: **el control comparable**
+
+**Instrumentos:** ZeroGPT, GPTZero y Grammarly (web); perplejidad, burstiness y un
+clasificador (local); `estilo.py` (estadística de estilo); `verificar_fidelidad.py`.
+
+---
+
+## 2. Detectores web
+
+### ZeroGPT
+
+| Texto | Veredicto | % IA |
+|---|---|---|
+| Control Quijote | Most Likely Human written | 23.7% |
+| Control Wikipedia 2014 | contains mixed signals | 46.5% |
+| 00 original | AI/GPT Generated | 98.5% |
+| **01 reglas de estilo** | **Human written** | **7.7%** |
+| 02 cadena de traducción | AI/GPT Generated | 81.2% |
+| **03 adversarial** | **Human written** | **6.7%** |
+
+El Quijote dio 23.7% en dos corridas separadas: el instrumento fue estable.
+
+### GPTZero
+
+| Texto | Veredicto | % humano |
+|---|---|---|
+| Control Quijote | entirely human | 99% |
+| Control Wikipedia 2014 | AI generated | 0% |
+| 00, 01, 02 y 03 | AI generated | 0% |
+
+Una sola corrida. Más tarde, el mismo día, GPTZero marcó el **mismo archivo** del
+Quijote como IA (0% humano) en dos corridas, y también una anécdota personal breve
+escrita a mano. El script comprueba que la página de resultados contenga una huella del
+texto enviado, así que no fue un error de lectura: el detector cambió de opinión.
+**Estos números no sirven como evidencia de mejora ni de fracaso.**
+
+### Grammarly
+
+Solo se pudo medir el original (100% IA). Después del primer escaneo dejó de arrancar
+nuevos escaneos sin mostrar error (detalle en `detectores.md` §5). **Es la limitación
+principal del benchmark**: la mejora no se verificó en el detector de partida.
+
+---
+
+## 3. Instrumento local
+
+| Texto | Perplejidad | Burstiness | P(IA) clasificador |
+|---|---|---|---|
+| 00 original | 12.33 | 10.19 | 99.97% |
+| 01 reglas de estilo | 16.50 | 38.94 | 99.97% |
+| 02 cadena de traducción | 11.79 | 12.45 | 99.97% |
+| 03 adversarial | 17.54 | 68.53 | 99.97% |
+| Control Quijote | 28.50 | 58.23 | 0.19% |
+| **Control Wikipedia 2014** | **10.35** | **16.24** | **99.96%** |
+
+Tres lecturas:
+
+1. **Perplejidad y burstiness ordenan igual que ZeroGPT.** Las variantes que bajaron
+   en el detector las subieron; la cadena de traducción bajó la perplejidad por debajo
+   del original.
+2. **No son una medida de «humanidad».** El texto humano comparable es más previsible
+   que el ensayo generado y tiene menos de la mitad de burstiness que la variante 01. Reflejan lo
+   que premian los detectores. La versión anterior de esta documentación comparaba
+   contra el Quijote (58.23) como si fuera «el nivel humano»: eso medía arcaísmo.
+3. **El clasificador no sirve en español.** Su ficha dice que se afinó en inglés, chino
+   y vietnamita. Marca como IA el control humano moderno; solo separa el Quijote.
+
+---
+
+## 4. Estilo (`scripts/estilo.py`, sin dependencias)
+
+| Texto | Palabras/oración | Variación (CV) | % oraciones ≤8 pal. | Delatores |
+|---|---|---|---|---|
+| 00 original | 29.0 | 0.36 | 0 | 9 |
+| 01 reglas de estilo | 19.9 | 0.53 | 13 | 3 |
+| 02 cadena de traducción | 24.6 | 0.36 | 0 | 4 |
+| 03 adversarial | 15.1 | 0.68 | 31 | 3 |
+| Control Wikipedia 2014 | 28.9 | 0.51 | 4 | 1 |
+| Control Quijote | 86.4 | 0.60 | 0 | 0 |
+
+La variación relativa de longitud de oración (CV) separa lo que bajó en el detector
+(0.53, 0.68) de lo que no (0.36), y la variante 01 queda prácticamente en el valor
+del humano comparable (0.51). La desviación absoluta, en cambio, casi no cambió (10.6 → 10.5 y
+10.3): las variantes metieron oraciones cortas entre las largas, no oraciones más largas.
+
+Las variantes medidas conservan delatores que la guía manda quitar («Lejos de
+reducirse», «Resulta indispensable», «En última instancia», «no es X: es Y»). Bajaron en el detector
+con ellos dentro; una edición más cuidadosa los quitaría.
+
+---
+
+## 5. Fidelidad de contenido
+
+27 conceptos del original (`ejemplos/conceptos-metafisica.txt`):
+
+| Texto | Conceptos |
+|---|---|
+| 01 reglas de estilo | 27/27 |
+| **02 cadena de traducción** | **25/27** |
+| 03 adversarial | 27/27 |
+
+Lo que perdió la cadena de traducción:
+
+1. «principio de **no** contradicción» → «principio de contradicción». No es una
+   omisión: invierte el sentido, y ningún corrector ortográfico lo detecta.
+   `verificar_fidelidad.py` ahora además lista las negaciones desaparecidas; esta
+   aparece.
+2. «subatómico» desapareció.
+
+**Qué no mide este número.** Solo cuenta los 27 conceptos de la lista. La variante 03,
+con 27/27, eliminó el subtítulo del ensayo («Fundamentos, crisis y vigencia de la
+metafísica»). Por eso la guía pide releer el texto completo además de correr el script.
+
+---
+
+## 6. Literatura
+
+**Los ataques bajan el score pero no borran la huella.**
+[*Attacks on Machine-Text Detectors Retain Stylistic Fingerprints*](https://arxiv.org/abs/2505.14608)
+(arXiv, 2025): los ataques actuales, desde prompts hasta optimización guiada por el
+detector, degradan a los detectores estándar pero dejan una huella estilística que los
+detectores basados en estilo siguen viendo, sobre todo cuando se analizan varios
+documentos del mismo autor.
+
+**Los detectores comerciales fallan en los dos sentidos.**
+[Prueba de Langara College sobre Turnitin](https://iweb.langara.ca/edtech/files/2026/02/Turnitin_AI_Detection_Accuracy-Sept2025.pdf)
+(septiembre de 2025): obtener 0% con texto generado fue fácil (ediciones humanas
+mínimas, un humanizador o un modelo de pago sin editar); la actualización
+«anti-humanizer» de Turnitin no los detectó; y Turnitin reconoce que el texto de
+personas no nativas en inglés se marca más como IA porque varía menos en estructura y
+vocabulario.
+
+**El método con mejor respaldo publicado.**
+[chengez/Adversarial-Paraphrasing](https://github.com/chengez/Adversarial-Paraphrasing)
+(NeurIPS 2025): parafraseo guiado por un detector, sin entrenamiento y transferible
+entre detectores. La variante 03 es una aproximación manual de una sola pasada a esa
+idea, sin el bucle de retroalimentación.
+
+**El método que se descartó.**
+[lynote-ai/humanize-text](https://github.com/lynote-ai/humanize-text) (~3k estrellas):
+dos reescrituras con LLM a temperatura 1.3 y luego dos saltos con motores de
+traducción automática, partiendo del inglés. La variante 02 lo adapta al español y usa
+un LLM en todos los saltos, así que el resultado describe esta adaptación, no
+necesariamente al repositorio original.
+
+---
+
+## 7. Conclusiones
+
+Lo que el benchmark sostiene, con su tamaño de muestra en mente:
+
+1. **Las reglas de estilo funcionaron en este texto**: ZeroGPT pasó de 98.5% a 7.7%
+   conservando los 27 conceptos. Es una brecha grande en un instrumento estable, pero
+   es un solo texto.
+2. **La variante agresiva no aportó nada medible** (6.7% frente a 7.7% es ruido) y se
+   aleja más del humano comparable. Se recomienda la moderada.
+3. **La cadena de traducción se descarta**: bajó poco (81.2%), empeoró la perplejidad
+   y corrompió contenido.
+4. **Los detectores se contradicen** sobre el mismo texto: 6.7% en ZeroGPT, «AI
+   generated» en GPTZero.
+5. **Los detectores marcan texto humano** del mismo registro: 46.5% en ZeroGPT; IA en
+   GPTZero y en el clasificador local. Antes de optimizar contra un detector hay que
+   medir cómo trata a un texto humano parecido.
+6. **Sin control humano en la misma corrida, un detector degradado se lee como «la
+   humanización falló».** Por eso el control es obligatorio.
+
+Lo que **no** sostiene: que las palancas funcionen igual en otros textos o registros,
+qué palanca pesa más, ni nada sobre Grammarly después de humanizar.
+
+---
+
+## 8. Limitaciones
+
+1. **Un solo texto de prueba**, de un solo registro (académico).
+2. **Grammarly no se pudo medir** después de humanizar.
+3. **GPTZero no fue reproducible** en la misma sesión.
+4. **Las variantes las escribió un modelo**, en una pasada. No se comparó contra
+   reescrituras hechas por personas.
+5. **La fidelidad se mide sobre una lista**, no sobre el texto completo.
+6. **El clasificador local está fuera de dominio**; la validación cruzada se apoya en
+   ZeroGPT, perplejidad/burstiness y `estilo.py`.
+
+Contribuciones que harían esto más sólido: más textos y registros (marketing, técnico,
+correos), controles humanos de cada registro, y mediciones en Grammarly con cuenta.
+
+---
+
+## 9. Reproducir
+
+Desde la raíz del repositorio:
+
+```bash
+# sin dependencias
+python3 scripts/estilo.py ejemplos/0*.txt ejemplos/controles/control-wikipedia-metafisica-2014.txt
+python3 scripts/verificar_fidelidad.py ejemplos/00-original.txt ejemplos/01-reglas-estilo.txt \
+        ejemplos/02-cadena-traduccion.txt ejemplos/03-adversarial.txt \
+        --conceptos ejemplos/conceptos-metafisica.txt
+
+# perplejidad y burstiness (requiere el .venv)
+.venv/bin/python scripts/detect_local.py ejemplos/0*.txt ejemplos/controles/*.txt --clasificador
+
+# detectores web (requiere ego lite; usan la red y tienen límites de uso)
+scripts/score-zerogpt.sh ejemplos/0*.txt ejemplos/controles/*.txt
+scripts/score-gptzero.sh ejemplos/0*.txt ejemplos/controles/*.txt
+```
+
+Los números locales y de estilo deben salir idénticos. Los web pueden variar: los
+detectores cambian sin avisar. Si regeneras la variante 02, cambiará (temperatura 1.3).

@@ -1,0 +1,12 @@
+# Solo para scripts/detect_local.py (perplejidad y burstiness).
+# Todo lo demas (estilo.py, verificar_fidelidad.py) usa la biblioteca estandar.
+#
+#   python3 -m venv .venv
+#   .venv/bin/pip install -r scripts/requirements.txt
+#
+# Ocupa ~1 GB en el venv (torch) y la primera corrida descarga Qwen2.5-0.5B
+# (~1 GB) a ~/.cache/huggingface. Funciona en CPU. Probado con Python 3.9-3.12,
+# torch 2.8 y transformers 4.57.
+
+torch>=2.8.0
+transformers>=4.57.0

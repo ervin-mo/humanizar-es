@@ -1,0 +1,23 @@
+name: pruebas
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.9", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Sintaxis de los scripts de shell
+        run: for f in install.sh scripts/*.sh; do bash -n "$f"; done
+      - name: shellcheck (solo errores)
+        run: shellcheck -S error install.sh scripts/*.sh
+      - name: Pruebas
+        run: python -m unittest discover -s tests -v

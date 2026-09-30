@@ -1,0 +1,175 @@
+"""Pruebas de las herramientas sin dependencias. Corren con la biblioteca estandar:
+
+    python3 -m unittest discover -s tests -v
+
+Anclan los resultados del benchmark: si un cambio altera la fidelidad medida o el
+medidor de estilo, estas pruebas lo dicen.
+"""
+import json
+import os
+import subprocess
+import sys
+import tempfile
+import unittest
+import unicodedata
+
+RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SCRIPTS = os.path.join(RAIZ, "scripts")
+EJ = os.path.join(RAIZ, "ejemplos")
+ORIGINAL = os.path.join(EJ, "00-original.txt")
+ESTILO_01 = os.path.join(EJ, "01-reglas-estilo.txt")
+CADENA_02 = os.path.join(EJ, "02-cadena-traduccion.txt")
+ADVERS_03 = os.path.join(EJ, "03-adversarial.txt")
+CONCEPTOS = os.path.join(EJ, "conceptos-metafisica.txt")
+
+sys.path.insert(0, SCRIPTS)
+import estilo  # noqa: E402
+import verificar_fidelidad as vf  # noqa: E402
+
+
+def correr(*args):
+    return subprocess.run(args, capture_output=True, text=True, cwd=RAIZ)
+
+
+class Fidelidad(unittest.TestCase):
+    def test_reproduce_el_benchmark(self):
+        r = correr(sys.executable, os.path.join(SCRIPTS, "verificar_fidelidad.py"),
+                   ORIGINAL, ESTILO_01, CADENA_02, ADVERS_03, "--conceptos", CONCEPTOS)
+        self.assertIn("01-reglas-estilo.txt           27/27 = 100%", r.stdout)
+        self.assertIn("02-cadena-traduccion.txt       25/27 = 93%", r.stdout)
+        self.assertIn("03-adversarial.txt             27/27 = 100%", r.stdout)
+        self.assertEqual(r.returncode, 1, "una variante pierde conceptos: debe salir con 1")
+
+    def test_variantes_fieles_salen_con_cero(self):
+        r = correr(sys.executable, os.path.join(SCRIPTS, "verificar_fidelidad.py"),
+                   ORIGINAL, ESTILO_01, ADVERS_03, "--conceptos", CONCEPTOS)
+        self.assertEqual(r.returncode, 0, r.stdout)
+
+    def test_detecta_la_negacion_invertida(self):
+        r = correr(sys.executable, os.path.join(SCRIPTS, "verificar_fidelidad.py"),
+                   ORIGINAL, CADENA_02, "--conceptos", CONCEPTOS)
+        self.assertIn("«no contradiccion»", r.stdout)
+
+    def test_ignora_acentos_y_forma_unicode(self):
+        texto_nfd = unicodedata.normalize("NFD", "La Crítica de la razón pura de Kant")
+        pat = vf.patron("critica de la razon pura")
+        self.assertTrue(pat.search(vf.norm(texto_nfd)))
+
+    def test_extraccion_automatica(self):
+        with open(ORIGINAL, encoding="utf-8") as fh:
+            nombres = [n for n, _ in vf.extraer_conceptos(fh.read())]
+        for esperado in ("Aristóteles", "Tomás de Aquino", "Dasein", "res cogitans"):
+            self.assertIn(esperado, nombres)
+        self.assertNotIn("El", nombres)
+
+    def test_palabra_completa_no_casa_con_otra_mas_larga(self):
+        self.assertFalse(vf.patron("ser").search(vf.norm("el servicio")))
+        self.assertTrue(vf.patron("antinomia").search(vf.norm("las antinomias")))
+        self.assertTrue(vf.patron("subatómic*").search(vf.norm("nivel subatómico")))
+
+    def test_negacion_entre_comillas(self):
+        self.assertIn("no contradiccion", vf.negaciones("el principio de no «contradicción»"))
+
+    def test_lista_que_no_corresponde_al_original_falla(self):
+        with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False, encoding="utf-8") as fh:
+            fh.write("Leibniz\n")
+        try:
+            r = correr(sys.executable, os.path.join(SCRIPTS, "verificar_fidelidad.py"),
+                       ORIGINAL, ESTILO_01, "--conceptos", fh.name)
+            self.assertEqual(r.returncode, 1)
+        finally:
+            os.unlink(fh.name)
+
+    def test_archivo_inexistente_sale_con_dos(self):
+        r = correr(sys.executable, os.path.join(SCRIPTS, "verificar_fidelidad.py"),
+                   ORIGINAL, "no-existe.txt")
+        self.assertEqual(r.returncode, 2)
+
+
+class Estilo(unittest.TestCase):
+    def medir(self, ruta):
+        with open(ruta, encoding="utf-8") as fh:
+            return estilo.medir(fh.read())
+
+    def test_es_determinista(self):
+        self.assertEqual(self.medir(ORIGINAL), self.medir(ORIGINAL))
+
+    def test_ordena_como_el_benchmark(self):
+        cv = {n: self.medir(p)["cv_longitud_oracion"]
+              for n, p in [("00", ORIGINAL), ("01", ESTILO_01), ("02", CADENA_02), ("03", ADVERS_03)]}
+        self.assertGreater(cv["01"], cv["00"])
+        self.assertGreater(cv["03"], cv["00"])
+        self.assertLessEqual(cv["02"], cv["00"] + 0.01)
+
+    def test_encuentra_delatores(self):
+        m = estilo.medir("Cabe destacar que la IA no solo es útil, sino también rápida. "
+                         "En la actualidad, constituye un avance.")
+        etiquetas = {d["delator"] for d in m["delatores"]}
+        self.assertIn("cabe destacar / señalar / mencionar", etiquetas)
+        self.assertIn("no solo ... sino", etiquetas)
+        self.assertIn("en la actualidad / hoy en día", etiquetas)
+        self.assertIn("constituye / se erige como", etiquetas)
+
+    def test_delatores_en_plural_y_pasado(self):
+        m = estilo.medir("Juegan un papel clave. Resultan indispensables. Representó un hito.")
+        self.assertEqual(m["delatores_total"], 3)
+
+    def test_sin_falsos_positivos_conocidos(self):
+        m = estilo.medir("La asamblea constituyente votó. ¿Por qué no solo él? Sino todos.")
+        self.assertEqual(m["delatores_total"], 0)
+
+    def test_abreviaturas_no_parten_oraciones(self):
+        self.assertEqual(len(estilo.oraciones("Nació en el siglo I a. C. en Rodas. Lo vio el Dr. Pérez.")), 2)
+
+    def test_tramo_uniforme(self):
+        self.assertEqual(estilo.tramo_uniforme([30, 20, 20, 20]), 3)
+        self.assertEqual(estilo.tramo_uniforme([5, 40, 6, 35]), 1)
+
+    def test_parrafos_con_lineas_cortadas(self):
+        self.assertEqual(len(estilo.parrafos("linea uno\nlinea dos\n\notro parrafo")), 2)
+
+    def test_texto_limpio_sin_delatores(self):
+        self.assertEqual(estilo.medir("Salí temprano. Llovía.")["delatores_total"], 0)
+
+    def test_salida_json(self):
+        r = correr(sys.executable, os.path.join(SCRIPTS, "estilo.py"), ORIGINAL, "--json")
+        self.assertEqual(r.returncode, 0)
+        self.assertIn(ORIGINAL, json.loads(r.stdout))
+
+
+class Orquestador(unittest.TestCase):
+    def test_medir_rapido_propaga_fallo_de_fidelidad(self):
+        r = correr("bash", os.path.join(SCRIPTS, "medir.sh"), ORIGINAL, CADENA_02,
+                   "--conceptos", CONCEPTOS, "--rapido")
+        self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+
+    def test_medir_rapido_ok(self):
+        r = correr("bash", os.path.join(SCRIPTS, "medir.sh"), ORIGINAL, ESTILO_01,
+                   "--conceptos", CONCEPTOS, "--rapido")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("ESTILO", r.stdout)
+
+
+class Instalador(unittest.TestCase):
+    def test_instala_y_desinstala(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            r = correr("bash", os.path.join(RAIZ, "install.sh"), "--destino", tmp)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            destino = os.path.join(tmp, "humanizar-es")
+            self.assertTrue(os.path.isfile(os.path.join(destino, "SKILL.md")))
+            self.assertFalse(os.path.exists(os.path.join(destino, "tests")))
+            self.assertTrue(os.access(os.path.join(destino, "scripts", "estilo.py"), os.X_OK))
+            r = correr("bash", os.path.join(RAIZ, "install.sh"), "--destino", tmp, "--desinstalar")
+            self.assertFalse(os.path.exists(destino))
+
+    def test_destino_que_ya_termina_en_el_nombre_no_anida(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            destino = os.path.join(tmp, "humanizar-es")
+            r = correr("bash", os.path.join(RAIZ, "install.sh"), "--destino", destino)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertTrue(os.path.isfile(os.path.join(destino, "SKILL.md")))
+            self.assertFalse(os.path.exists(os.path.join(destino, "humanizar-es")))
+
+
+if __name__ == "__main__":
+    unittest.main()

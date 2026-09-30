@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+# tus propios textos de trabajo, si los guardas dentro del repo
+trabajo/
