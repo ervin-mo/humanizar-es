@@ -7,6 +7,7 @@ medidor de estilo, estas pruebas lo dicen.
 """
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -183,10 +184,69 @@ class Cubo(unittest.TestCase):
         self.assertTrue(partes[0]["titulo"])
         self.assertEqual(" ".join(self.cubo.unir(partes).split()), " ".join(texto.split()))
 
+    def test_bucle_completo_con_piezas_falsas(self):
+        """El cubo de punta a punta, sin red ni modelos: un detector falso que premia
+        lo corto y un generador que propone quitar 'muy'. El titulo no se toca, el
+        revisor veta un giro y el resto se conserva."""
+
+        class Detector:
+            def puntuar(self, texto):
+                return {"total": float(len(texto))}
+
+        class Generador:
+            modelos = ["falso"]
+
+            def variantes(self, oracion, *a, **k):
+                return [oracion.replace("muy ", "")]
+
+            def revisar(self, pares):
+                return {i for i, (o, n) in enumerate(pares) if "vetada" in o}
+
+        texto = ("Titulo del texto\n\nLa idea era muy clara. El tema era muy amplio.\n\n"
+                 "Esta frase vetada era muy larga.\n")
+        with tempfile.TemporaryDirectory() as tmp:
+            salida = os.path.join(tmp, "s.txt")
+            res, ini, fin, st = self.cubo.por_parrafo(
+                texto, Generador(), Detector(), [], "academico", 2, 1, 1, salida)
+            self.assertTrue(os.path.exists(salida))
+        self.assertTrue(res.startswith("Titulo del texto"))
+        self.assertIn("La idea era clara. El tema era amplio.", res)
+        self.assertIn("Esta frase vetada era muy larga.", res)
+        self.assertLess(fin, ini)
+        self.assertEqual(st["aceptadas"], 2)
+
     def test_correlacion_de_rangos(self):
         import calibrar
         self.assertAlmostEqual(calibrar.spearman([1, 2, 3], [10, 20, 30]), 1.0)
         self.assertAlmostEqual(calibrar.spearman([1, 2, 3], [30, 20, 10]), -1.0)
+
+
+class Ruleta(unittest.TestCase):
+    """Las piezas de la ruleta que no necesitan red ni modelos."""
+
+    @classmethod
+    def setUpClass(cls):
+        import ruleta
+        cls.r = ruleta
+
+    def test_lee_sinonimos_y_descarta_indices_raros(self):
+        d = self.r.leer_sinonimos('{"1": ["analizaba", "examinaba"], "2": [], "9": ["x"]}', 3)
+        self.assertEqual(d, {1: ["analizaba", "examinaba"], 2: []})
+        self.assertEqual(self.r.leer_sinonimos("sin json", 3), {})
+
+    def test_reemplazo_conserva_la_mayuscula(self):
+        self.assertEqual(self.r.reemplazar("Estudia el horizonte.", 0, 7, "examina"), "Examina el horizonte.")
+        self.assertEqual(self.r.reemplazar("Se estudia el todo.", 3, 10, "examina"), "Se examina el todo.")
+
+    def test_encuentra_la_oracion_de_una_palabra(self):
+        p = "La física estudiaba el cambio. La filosofía primera buscaba lo permanente."
+        self.assertEqual(self.r.oracion_de(p, p.find("buscaba")),
+                         "La filosofía primera buscaba lo permanente.")
+
+    def test_no_toca_conceptos_protegidos(self):
+        protegidas = self.r.palabras_protegidas(vf.cargar_conceptos(CONCEPTOS))
+        self.assertIn("contingencia", protegidas)
+        self.assertIn("subatomic", protegidas)
 
 
 class Orquestador(unittest.TestCase):
@@ -213,6 +273,31 @@ class Instalador(unittest.TestCase):
             self.assertTrue(os.access(os.path.join(destino, "scripts", "estilo.py"), os.X_OK))
             r = correr("bash", os.path.join(RAIZ, "install.sh"), "--destino", tmp, "--desinstalar")
             self.assertFalse(os.path.exists(destino))
+
+    def test_por_defecto_instala_para_todos_los_agentes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            env = dict(os.environ, HOME=tmp)
+            r = subprocess.run(["bash", os.path.join(RAIZ, "install.sh")],
+                               capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            for carpeta in (".claude/skills", ".agents/skills"):
+                self.assertTrue(os.path.isfile(os.path.join(tmp, carpeta, "humanizar-es", "SKILL.md")))
+            r = subprocess.run(["bash", os.path.join(RAIZ, "install.sh"), "--agente", "codex"],
+                               capture_output=True, text=True, env=env)
+            self.assertTrue(os.path.isfile(os.path.join(tmp, ".codex/skills/humanizar-es/SKILL.md")))
+            subprocess.run(["bash", os.path.join(RAIZ, "install.sh"), "--desinstalar"],
+                           capture_output=True, text=True, env=env)
+            self.assertFalse(os.path.exists(os.path.join(tmp, ".claude/skills/humanizar-es")))
+            self.assertFalse(os.path.exists(os.path.join(tmp, ".agents/skills/humanizar-es")))
+
+    def test_frontmatter_cumple_el_formato_agent_skills(self):
+        with open(os.path.join(RAIZ, "SKILL.md"), encoding="utf-8") as fh:
+            cabecera = fh.read().split("---")[1]
+        nombre = re.search(r"^name: (.+)$", cabecera, re.M).group(1).strip()
+        descripcion = re.search(r"^description: (.+)$", cabecera, re.M).group(1).strip()
+        self.assertEqual(nombre, "humanizar-es")
+        self.assertRegex(nombre, r"^[a-z0-9]+(-[a-z0-9]+)*$")
+        self.assertLessEqual(len(descripcion), 1024)
 
     def test_destino_que_ya_termina_en_el_nombre_no_anida(self):
         with tempfile.TemporaryDirectory() as tmp:

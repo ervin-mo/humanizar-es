@@ -8,7 +8,8 @@ Referencia de `SKILL.md`. Pasa esta lista completa antes de dar un texto por ter
 
 Nada sale si esto falla.
 
-- [ ] Corrí `verificar_fidelidad.py --conceptos` y sale **100%** (código de salida 0)
+- [ ] Corrí `verificar_fidelidad.py original.txt reescrito.txt --conceptos conceptos.txt`
+      y sale **100%** (código de salida 0)
 - [ ] El archivo de conceptos es de **este** texto: lo revisé, no me quedé con la
       extracción automática sin mirarla
 - [ ] Revisé una por una las negaciones que el script reporta como desaparecidas

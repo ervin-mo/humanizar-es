@@ -10,8 +10,9 @@ de control tambien salen "IA". Compara versiones DEL MISMO texto, nunca textos d
   - total = fdg - 40 * (binoculars - 1): una sola cifra, cuanto mas BAJA, mas humana.
     El 40 solo iguala escalas (en el benchmark, fdg se mueve ~2 puntos y binoculars ~0.05).
 
-En el benchmark ordeno las tres versiones medidas en Grammarly igual que Grammarly
-(ver references/evidencia.md). Son tres puntos: evidencia inicial, no prueba.
+Contra Grammarly ordeno los seis ensayos del benchmark con una correlacion de rangos de
+0.87 (ver references/evidencia.md §4c y scripts/calibrar.py). Es un solo texto de prueba:
+evidencia inicial, no prueba.
 
 Uso:
   .venv/bin/python scripts/sustituto.py texto.txt [otro.txt ...]
@@ -78,6 +79,20 @@ class Sustituto:
         bino = log_ppl / x_ppl
 
         return {"fdg": fdg, "binoculars": bino, "total": fdg - ESCALA_BINO * (bino - 1)}
+
+    @torch.no_grad()
+    def previsibilidad(self, texto):
+        """Lista de (inicio, fin, logprob) por token del texto: que tan esperado era cada
+        token para el modelo base. Lo mas esperado es lo que delata a un texto generado."""
+        enc = self.tok(texto, return_tensors="pt", truncation=True, max_length=1024,
+                       return_offsets_mapping=True)
+        ids = enc.input_ids.to(self.dev)
+        if ids.shape[1] < 2:
+            return []
+        lp = torch.log_softmax(self.base(ids).logits[0, :-1].float(), -1)
+        toks = lp.gather(-1, ids[0, 1:, None]).squeeze(-1).tolist()
+        offs = enc["offset_mapping"][0].tolist()[1:]
+        return [(a, b, v) for (a, b), v in zip(offs, toks)]
 
 
 def main():

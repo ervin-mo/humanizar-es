@@ -1,8 +1,8 @@
 ---
 name: humanizar-es
-description: Edita texto en español que suena generado por IA para que suene escrito por una persona, sin cambiar lo que dice ni su registro, y mide el antes y el después con herramientas reproducibles. Úsalo cuando pidan "humanizar", "quitar las marcas de IA", "que no suene a ChatGPT", "que suene más natural", "reescribir esto con mi voz", o cuando un texto salió alto en un detector como Grammarly, GPTZero o ZeroGPT. Verifica que no se pierda contenido y no promete pasar todos los detectores.
+description: Reescribe texto en español generado por IA para que los detectores (Grammarly, GPTZero, ZeroGPT, CleverHumanizer) dejen de marcarlo, sin cambiar lo que dice. Usa "el cubo", una reescritura oración por oración guiada por un detector local, que llevó un párrafo de 100% IA a 0% en Grammarly. Úsalo cuando pidan "humanizar", "quitar las marcas de IA", "que no suene a ChatGPT", "que no lo detecte el detector", "que suene más natural" o "reescribir esto con mi voz". Verifica que no se pierda contenido y no promete pasar todos los detectores.
 metadata:
-  version: "1.1.0"
+  version: "1.2.0"
   idioma: es
   evidencia: references/evidencia.md
 ---
@@ -33,8 +33,8 @@ salirte del registro: un ensayo académico no puede terminar sonando a blog.
 ## Flujo de trabajo
 
 En los comandos, `<skill>` es la carpeta donde está este `SKILL.md` (por ejemplo
-`~/.claude/skills/humanizar-es`). Trabaja los archivos del texto en la carpeta del
-usuario, no dentro de la skill.
+`~/.claude/skills/humanizar-es` o `~/.agents/skills/humanizar-es`). Los archivos del
+texto van en la carpeta de trabajo del usuario, no dentro de la skill.
 
 ### 1. Guardar el original sin tocarlo
 
@@ -43,28 +43,15 @@ sobrescribas el original; cada versión va en un archivo nuevo.
 
 ### 2. Preguntar lo que no sabes
 
-Antes de reescribir necesitas dos datos. Si no están claros, pregúntalos:
+- **Registro de destino**: académico, técnico, marketing/redes o email profesional.
+- **Uso**: si es una entrega académica evaluada o un trabajo donde se exige declarar el
+  uso de IA, dilo antes de seguir (ver *Uso responsable*).
 
-- **Registro de destino**: académico, técnico, marketing/redes, email profesional.
-- **Uso**: si es una entrega académica evaluada o un trabajo donde la institución
-  exige declarar el uso de IA, dilo antes de seguir (ver *Uso responsable*).
+### 3. Hacer el inventario de contenido
 
-### 3. Medir el punto de partida
-
-```bash
-python3 <skill>/scripts/estilo.py 00-original.txt
-```
-
-No necesita instalar nada. Te da la variación de longitud de oración, los tramos de
-oraciones parejas y los delatores concretos que hay que quitar, con ejemplos.
-`<skill>/scripts/medir.sh` corre además los instrumentos opcionales que estén instalados.
-
-### 4. Hacer el inventario de contenido
-
-Lista lo que no se puede perder: nombres propios y obras, tecnicismos y términos en
-otra lengua, cifras y fechas, negaciones que sostienen una idea («principio de **no**
-contradicción»), relaciones lógicas (causa, contraste, concesión) y el orden del
-argumento. Escríbela en `conceptos.txt`, un concepto por línea:
+Lista lo que no se puede perder: nombres propios y obras, tecnicismos, cifras y fechas,
+negaciones que sostienen una idea («principio de **no** contradicción»). Escríbela en
+`conceptos.txt`, un concepto por línea, variantes separadas por `|`:
 
 ```text
 Aristóteles | Estagirita
@@ -73,51 +60,77 @@ Crítica de la razón pura
 1781
 ```
 
-Para arrancar puedes pedir una lista automática y depurarla:
-`python3 <skill>/scripts/verificar_fidelidad.py 00-original.txt --listar`
+Para arrancar: `python3 <skill>/scripts/verificar_fidelidad.py 00-original.txt --listar`
 
-### 5. Reescribir
+### 4. Comprobar que el cubo está listo
 
-Aplica las palancas de la sección siguiente **que permite el registro** (tabla de
-registros más abajo). El efecto viene de acumularlas, no de una sola. Guarda el
-resultado con un nombre que diga qué hiciste: `01-reglas-estilo.txt`, no `v2.txt`.
+El cubo es lo que de verdad baja el score; la reescritura a mano no basta (ver *Límites*).
+Necesita dos cosas:
 
-### 6. Verificar fidelidad (bloqueante)
+1. **Su entorno de Python**: existe `<skill>/.venv/bin/python`. Si no, propónle al
+   usuario crearlo (una vez, ~1 GB más ~2 GB de modelo en la primera corrida):
+   `cd <skill> && python3 -m venv .venv && .venv/bin/pip install -r scripts/requirements.txt`
+2. **Un generador**: la variable `HUMANIZAR_API_KEY` (y `HUMANIZAR_API_URL`,
+   `HUMANIZAR_MODEL` si no es DeepSeek). Pídele al usuario que la exporte él en su
+   terminal. **Nunca escribas una clave en un archivo, en el chat ni en un commit.** Las
+   opciones de proveedor están en el README de la skill.
 
-```bash
-python3 <skill>/scripts/verificar_fidelidad.py 00-original.txt 01-reglas-estilo.txt --conceptos conceptos.txt
-```
+Si el usuario no quiere o no puede configurar el cubo, sigue con la reescritura a mano
+(sección *Las palancas*) y dile con claridad qué esperar: en el benchmark, una reescritura
+a mano bien hecha se quedó en 75% en Grammarly.
 
-Sale con código 1 si falta un concepto. Además lista las negaciones del original
-que ya no aparecen igual: revísalas una por una. La mayoría son reformulaciones
-válidas; la que importa es la que invierte el sentido. En el benchmark, un método
-convirtió «principio de no contradicción» en «principio de contradicción» y ningún
-corrector lo detectó.
+### 5. Pasar el texto por el cubo
 
-El script solo comprueba lo que está en la lista. Relee además el texto completo
-contra el original: títulos, subtítulos y matices no se verifican solos.
-
-### 6b. (Opcional) El cubo
-
-Si el usuario tiene `scripts/cubo.py` configurado (una API de modelo de lenguaje y el
-`.venv`), puede pasar el texto por él después de tu reescritura. En el benchmark llevó un
-ensayo de 100% a 39% en Grammarly. Corre en CPU y tarda unos 20 minutos por ensayo: avisa
-antes de lanzarlo. Después **relee cada oración contra el original**: el cubo puede
-desviar el sentido o volver el texto acartonado, y eso se corrige a mano.
-
-### 7. Medir el resultado y entregar
+Antes de lanzarlo, avisa: tarda unos 5 minutos por párrafo de 120 palabras (unos 30
+para un ensayo), gasta llamadas del generador y usa la CPU. Luego:
 
 ```bash
-python3 <skill>/scripts/estilo.py 00-original.txt 01-reglas-estilo.txt
+<skill>/.venv/bin/python <skill>/scripts/cubo.py 00-original.txt -o 01-cubo.txt \
+    --conceptos conceptos.txt --registro academico
 ```
 
-Entrega: el archivo reescrito, la tabla de fidelidad, la tabla de estilo antes y
-después y, si se usaron detectores, cada score **con el nombre del detector** y el
-resultado del control humano. Si un detector no se pudo usar, dilo.
+Trabaja párrafo por párrafo y guarda el avance al terminar cada uno. Si tu entorno corta
+los comandos largos, lánzalo en segundo plano y revisa su salida, o pídele al usuario que
+lo corra en su terminal. **No uses la GPU** (`HUMANIZAR_DISPOSITIVO=mps`) en la Mac del
+usuario sin preguntarle: traba la pantalla mientras corre.
 
-## Las palancas
+### 6. Verificar y releer (bloqueante)
 
-El orden es de uso práctico, no un ranking medido: el benchmark midió variantes
+```bash
+python3 <skill>/scripts/verificar_fidelidad.py 00-original.txt 01-cubo.txt --conceptos conceptos.txt
+python3 <skill>/scripts/estilo.py 00-original.txt 01-cubo.txt
+```
+
+El primero sale con código 1 si falta un concepto y lista las negaciones que
+desaparecieron. Después **lee cada oración del resultado contra la original**. El cubo
+puede:
+
+- desviar el sentido («se detiene ante» → «halla su límite en»);
+- inventar algo («una piedra, una promesa, un número»);
+- dejar una frase acartonada por el orden invertido o una palabra rara.
+
+Donde pase, **vuelve a poner la oración original** o corrige solo la palabra culpable.
+No la reescribas tú desde cero: una oración reescrita por un modelo vuelve a sonar a
+modelo, y eso es justo lo que el cubo quitó.
+
+### 7. Entregar
+
+El archivo final, la tabla de fidelidad y la lista de oraciones que corregiste a mano.
+Recuérdale al usuario que mida en su detector **junto con un texto suyo escrito sin IA**:
+si ese también sale como IA, el detector no está midiendo.
+
+### Herramientas opcionales
+
+- `scripts/calibrar.py`: con textos ya medidos en el detector del usuario, dice si el
+  detector local los ordena igual.
+- `scripts/ruleta.py`: cambia palabras sueltas por sinónimos. Bajó a CleverHumanizer pero
+  no a Grammarly; después del cubo no aportó.
+- `scripts/medir.sh` y `scripts/score-*.sh`: mediciones locales y en detectores web.
+
+## Las palancas (reescritura a mano)
+
+Para cuando no hay cubo, o para corregir a mano lo que el cubo dejó raro. Por sí solas
+no bastan para pasar Grammarly (ver *Límites*). El orden es de uso práctico, no un ranking medido: el benchmark midió variantes
 completas, no cada palanca por separado.
 
 1. **Variar la longitud de oración.** Alterna frases de 3-8 palabras con otras de
@@ -166,8 +179,8 @@ detector y leyó peor: más no es mejor.
   queda solo para reproducir el experimento.
 - **Erratas deliberadas.** Cuestan reputación en cualquier texto firmado y no
   resuelven la regularidad, que es lo que delata.
-- **Sinónimos palabra por palabra.** El ritmo y la estructura siguen iguales; es el
-  «parafraseo ciego» que la literatura documenta como inútil.
+- **Sinónimos palabra por palabra.** El ritmo y la estructura siguen iguales. Incluso
+  guiados por el detector (`scripts/ruleta.py`), no movieron a Grammarly.
 
 ## Límites (léelos antes de prometer nada)
 
@@ -182,11 +195,11 @@ detector y leyó peor: más no es mejor.
 4. **Perplejidad y burstiness no son «humanidad».** En el benchmark, el texto humano
    comparable (Wikipedia 2014) tuvo *menos* perplejidad que el ensayo generado. Son
    las señales que miran los detectores, no un retrato de cómo escribe la gente.
-5. **Las métricas no predicen a Grammarly.** Una reescritura completa hecha por un
-   modelo, con cero delatores y mejores números que otra versión, sacó 100% contra 75%.
-   No prometas que bajar los delatores bajará el score. Lo que un modelo no puede
-   aportar es la voz del autor: pídele un ejemplo, una opinión o una anécdota suya y
-   déjalos en su forma de decirlo.
+5. **Quitar las frases típicas de IA no basta.** Una reescritura completa hecha por un
+   modelo, con cero delatores, sacó 100% en Grammarly. Lo que funcionó fue el cubo: un
+   párrafo pasó de 100% a 0% en Grammarly y a 99% humano en CleverHumanizer. Pero el
+   ensayo completo, girado de una vez, se quedó en 39%; el modo párrafo por párrafo aún
+   no se ha medido con un ensayo entero. No prometas un número.
 6. **Un solo texto de prueba.** El benchmark es un caso bien controlado, no una
    estadística. Diferencias de pocos puntos no significan nada.
 7. **Comparar varios documentos del mismo autor** revela patrones que un documento
@@ -206,6 +219,8 @@ entrega académica, avisa del riesgo antes de proceder: ya no es un problema té
 - `references/checklist.md` — control de calidad antes de entregar
 - `references/detectores.md` — cómo medir con cada instrumento y sus trampas
 - `references/evidencia.md` — el benchmark completo y la literatura
+- `scripts/cubo.py` — la reescritura guiada por detector (necesita `.venv` y una API)
+- `scripts/sustituto.py` — el detector local que guía al cubo
 - `scripts/estilo.py` — medidor de estilo, sin dependencias
 - `scripts/verificar_fidelidad.py` — verificación de contenido, sin dependencias
 - `scripts/medir.sh` — corre todo lo disponible

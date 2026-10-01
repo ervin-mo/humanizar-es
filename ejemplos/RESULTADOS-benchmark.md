@@ -34,6 +34,8 @@ qué hay en esta carpeta y los números clave.
 | Control humano: Wikipedia 2014 | 46.5% | — | — | 0.51 |
 | Control humano: Quijote (1605) | 23.7% | — | — | 0.60 |
 
+En CleverHumanizer, el párrafo del cubo sacó **99% humano** (ver `parrafo/LEEME.md`).
+
 GPTZero marcó como IA las cuatro variantes y el control de Wikipedia, y no fue reproducible.
 Grammarly se midió a mano, un escaneo por texto. La 04, con cero delatores y mejores
 métricas propias que la 01, sacó 100%: las métricas del repo no predicen a Grammarly

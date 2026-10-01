@@ -181,6 +181,35 @@ comunes. Por eso se agregó un revisor de sentido: en una prueba con esos 7 erro
 y 3 giros correctos, `deepseek-v4.1-flash` vetó los 7 errores y uno de los correctos.
 **El cubo con revisor no se ha medido en Grammarly todavía.**
 
+### 4d. El párrafo que pasó los dos detectores, y la ruleta
+
+El primer párrafo del ensayo, medido a mano en Grammarly y en CleverHumanizer
+(`ejemplos/parrafo/`):
+
+| Versión | Grammarly | CleverHumanizer |
+|---|---|---|
+| Original | 100% IA | — |
+| Solo ruleta (`scripts/ruleta.py`) | 100% IA | 76% humano |
+| **Solo cubo** | **0% IA** | **99% humano** |
+| Cubo + ruleta | 0% IA | 92% humano |
+
+Lecturas:
+
+1. **El cubo solo pasó los dos detectores.** Reescribe la estructura de cada oración, que
+   es lo que mira Grammarly.
+2. **La ruleta** (sinónimos palabra por palabra guiados por el mismo detector local, la
+   idea de Shi et al., TACL 2023) movió a CleverHumanizer pero **no a Grammarly**, y
+   después del cubo no aportó.
+3. **El detector local no anticipó esa diferencia:** le dio mejor puntaje a la ruleta
+   (−7.65) que al cubo (−4.89). Con cambios de estructura ordena como Grammarly; con
+   cambios de palabras sueltas se deja engañar por el vocabulario poco común.
+
+**Por qué el párrafo pasó y el ensayo no (hipótesis, sin comprobar).** En el párrafo el
+cubo giró todas las oraciones; en el ensayo, girado de una vez, varias quedaron sin cambio,
+y Grammarly parece puntuar por tramos. Además, un texto largo le da más evidencia al
+detector. Por eso `cubo.py` trabaja ahora párrafo por párrafo, como en esta prueba. **Ese
+modo no se ha medido todavía con un ensayo completo.**
+
 ---
 
 ## 5. Fidelidad de contenido

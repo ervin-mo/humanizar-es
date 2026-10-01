@@ -13,6 +13,7 @@ Compara solo textos de longitud parecida: el puntaje del sustituto depende del l
 Uso:
   .venv/bin/python scripts/calibrar.py etiquetas.tsv
 """
+import argparse
 import os
 import sys
 
@@ -43,11 +44,13 @@ def spearman(a, b):
 
 
 def main():
-    if len(sys.argv) != 2:
-        print(__doc__)
-        return 2
+    ap = argparse.ArgumentParser(
+        description="Calibra el detector sustituto contra un detector real.",
+        epilog="Formato del archivo: una linea por texto, 'ruta<TAB>porcentaje de IA'.")
+    ap.add_argument("etiquetas", help="archivo con ruta y %% de IA de tu detector")
+    args = ap.parse_args()
     filas = []
-    with open(sys.argv[1], encoding="utf-8") as fh:
+    with open(args.etiquetas, encoding="utf-8") as fh:
         for linea in fh:
             linea = linea.split("#", 1)[0].strip()
             if linea:

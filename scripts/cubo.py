@@ -22,7 +22,10 @@ El generador es cualquier API compatible con OpenAI (chat/completions):
   export HUMANIZAR_MODEL=deepseek-chat         # por defecto; varios separados por coma
   export HUMANIZAR_REVISOR=deepseek-chat       # modelo que veta cambios de sentido
   # cabeceras extra, separadas por ';'  (OpenCode Go exige x-opencode-session)
-  export HUMANIZAR_API_HEADERS="x-opencode-session: $(uuidgen)"
+  export HUMANIZAR_API_HEADERS="x-opencode-session: {uuid}"   # {uuid} se reemplaza solo
+
+Por defecto trabaja parrafo por parrafo (3 rondas cada uno), que es como se midio el
+resultado de 100% -> 0% en Grammarly. Con --texto-completo gira todo el texto a la vez.
 
 Uso:
   .venv/bin/python scripts/cubo.py original.txt -o humanizado.txt \\
@@ -36,6 +39,7 @@ import re
 import sys
 import time
 import urllib.request
+import uuid
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import estilo  # noqa: E402
@@ -117,6 +121,7 @@ class Generador:
         self.tokens = 0
         self.llamadas = 0
         self.cortadas = 0
+        self.revisor_fallos = 0
 
     def variantes(self, oracion, parrafo, n, registro, obligatorios, repetidas=()):
         oblig = ""
@@ -144,6 +149,9 @@ class Generador:
         try:
             return {int(i) for i in json.loads(m.group(0))["rechazar"]}
         except Exception:
+            self.revisor_fallos += 1
+            print(f"   (el revisor no dio una respuesta legible; se rechaza el lote: "
+                  f"{(contenido or '')[:120]!r})", flush=True)
             return set(range(len(pares)))
 
     def _llamar(self, modelo, prompt, temperatura):
@@ -337,6 +345,30 @@ def correr(texto, gen, sust, conceptos, registro, n, rondas, hilos, salida=None,
     return unir(parrafos), inicial, final, stats
 
 
+def por_parrafo(texto, gen, sust, conceptos, registro, n, rondas, hilos, salida):
+    """Gira cada parrafo por separado, como en la prueba que paso los dos detectores
+    (references/evidencia.md §4d). Cada parrafo recibe todas sus rondas antes de pasar
+    al siguiente, y el resultado se guarda al terminar cada uno."""
+    bloques = estilo.parrafos(texto)
+    inicial = objetivo(sust, texto)
+    stats = {"propuestas": 0, "rechazos": {}, "aceptadas": 0, "vetadas": 0}
+    for i, b in enumerate(bloques):
+        if partir(b)[0]["titulo"]:
+            continue
+        print(f"\n=== Parrafo {i + 1} de {len(bloques)} ===", flush=True)
+        nuevo, _, _, st = correr(b, gen, sust, conceptos, registro, n, rondas, hilos)
+        bloques[i] = nuevo.strip()
+        stats["propuestas"] += st["propuestas"]
+        stats["aceptadas"] += st["aceptadas"]
+        stats["vetadas"] += st["vetadas"]
+        for k, v in st["rechazos"].items():
+            stats["rechazos"][k] = stats["rechazos"].get(k, 0) + v
+        with open(salida, "w", encoding="utf-8") as fh:
+            fh.write("\n\n".join(bloques) + "\n")
+    resultado = "\n\n".join(bloques) + "\n"
+    return resultado, inicial, objetivo(sust, resultado), stats
+
+
 def main():
     ap = argparse.ArgumentParser(description="Reescritura guiada por detector, oracion por oracion.")
     ap.add_argument("original")
@@ -344,7 +376,9 @@ def main():
     ap.add_argument("--conceptos", help="archivo de conceptos (ver verificar_fidelidad.py)")
     ap.add_argument("--registro", choices=sorted(REGISTROS), default="academico")
     ap.add_argument("--variantes", type=int, default=8, help="giros por oracion (8)")
-    ap.add_argument("--rondas", type=int, default=2, help="pasadas completas (2)")
+    ap.add_argument("--rondas", type=int, default=3, help="pasadas por bloque (3)")
+    ap.add_argument("--texto-completo", action="store_true",
+                    help="girar todo el texto a la vez en vez de parrafo por parrafo")
     ap.add_argument("--hilos", type=int, default=6, help="llamadas simultaneas al generador (6)")
     ap.add_argument("--temperatura", type=float, default=1.0)
     args = ap.parse_args()
@@ -356,7 +390,7 @@ def main():
     cabeceras = {}
     for par in filter(None, os.environ.get("HUMANIZAR_API_HEADERS", "").split(";")):
         k, _, v = par.partition(":")
-        cabeceras[k.strip()] = v.strip()
+        cabeceras[k.strip()] = v.strip().replace("{uuid}", str(uuid.uuid4()))
     gen = Generador(
         os.environ.get("HUMANIZAR_API_URL", "https://api.deepseek.com/chat/completions"),
         os.environ.get("HUMANIZAR_MODEL", "deepseek-chat"),
@@ -373,9 +407,14 @@ def main():
     sust = Sustituto()  # CPU salvo HUMANIZAR_DISPOSITIVO; ver sustituto.py
 
     inicio = time.time()
-    resultado, inicial, final, stats = correr(
-        texto, gen, sust, conceptos, args.registro, args.variantes, args.rondas, args.hilos,
-        salida=args.salida)
+    if args.texto_completo:
+        resultado, inicial, final, stats = correr(
+            texto, gen, sust, conceptos, args.registro, args.variantes, args.rondas, args.hilos,
+            salida=args.salida)
+    else:
+        resultado, inicial, final, stats = por_parrafo(
+            texto, gen, sust, conceptos, args.registro, args.variantes, args.rondas, args.hilos,
+            args.salida)
     if gen.llamadas == 0:
         print("\nERROR: el generador no respondio ninguna vez; no escribo nada.", file=sys.stderr)
         print("Revisa HUMANIZAR_API_URL, HUMANIZAR_MODEL, la clave y las cabeceras.", file=sys.stderr)
