@@ -215,6 +215,24 @@ class Cubo(unittest.TestCase):
         self.assertLess(fin, ini)
         self.assertEqual(st["aceptadas"], 2)
 
+    def test_clave_desde_variable_o_archivo(self):
+        viejo = os.environ.pop("HUMANIZAR_API_KEY", None)
+        archivo_viejo = self.cubo.ARCHIVO_CLAVE
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                self.cubo.ARCHIVO_CLAVE = os.path.join(tmp, "api_key")
+                self.assertEqual(self.cubo.leer_clave(), "")
+                with open(self.cubo.ARCHIVO_CLAVE, "w") as fh:
+                    fh.write("desde-archivo\n")
+                self.assertEqual(self.cubo.leer_clave(), "desde-archivo")
+                os.environ["HUMANIZAR_API_KEY"] = "desde-variable"
+                self.assertEqual(self.cubo.leer_clave(), "desde-variable")
+        finally:
+            self.cubo.ARCHIVO_CLAVE = archivo_viejo
+            os.environ.pop("HUMANIZAR_API_KEY", None)
+            if viejo is not None:
+                os.environ["HUMANIZAR_API_KEY"] = viejo
+
     def test_correlacion_de_rangos(self):
         import calibrar
         self.assertAlmostEqual(calibrar.spearman([1, 2, 3], [10, 20, 30]), 1.0)

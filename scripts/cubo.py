@@ -17,7 +17,7 @@ No hay garantia de pasar ningun detector comercial. Verifica siempre el resultad
 detector que te importa y relee el texto: el sustituto no entiende el sentido.
 
 El generador es cualquier API compatible con OpenAI (chat/completions):
-  export HUMANIZAR_API_KEY=...
+  export HUMANIZAR_API_KEY=...       # o guardala en ~/.config/humanizar-es/api_key
   export HUMANIZAR_API_URL=https://api.deepseek.com/chat/completions   # por defecto
   export HUMANIZAR_MODEL=deepseek-flash         # por defecto; varios separados por coma
   export HUMANIZAR_REVISOR=deepseek-flash       # modelo que veta cambios de sentido
@@ -107,6 +107,20 @@ Responde SOLO con JSON: {{"rechazar": [números de los pares rechazados]}}"""
 
 
 # ---------------------------------------------------------------- generador
+
+ARCHIVO_CLAVE = os.path.expanduser("~/.config/humanizar-es/api_key")
+
+
+def leer_clave():
+    """La clave de la API: de HUMANIZAR_API_KEY o, si no esta, del archivo
+    ~/.config/humanizar-es/api_key. El archivo sirve cuando un agente (Codex, por
+    ejemplo) no les pasa a los comandos las variables con KEY en el nombre."""
+    clave = os.environ.get("HUMANIZAR_API_KEY", "").strip()
+    if not clave and os.path.isfile(ARCHIVO_CLAVE):
+        with open(ARCHIVO_CLAVE, encoding="utf-8") as fh:
+            clave = fh.read().strip()
+    return clave
+
 
 class Generador:
     def __init__(self, url, modelo, clave, cabeceras, temperatura, revisor=None):
@@ -383,9 +397,10 @@ def main():
     ap.add_argument("--temperatura", type=float, default=1.0)
     args = ap.parse_args()
 
-    clave = os.environ.get("HUMANIZAR_API_KEY")
+    clave = leer_clave()
     if not clave:
-        print("ERROR: define HUMANIZAR_API_KEY (ver la ayuda con -h)", file=sys.stderr)
+        print(f"ERROR: falta la clave de la API: define HUMANIZAR_API_KEY o guardala en "
+              f"{ARCHIVO_CLAVE} (ver la ayuda con -h)", file=sys.stderr)
         return 2
     cabeceras = {}
     for par in filter(None, os.environ.get("HUMANIZAR_API_HEADERS", "").split(";")):

@@ -223,9 +223,10 @@ def main():
     ap.add_argument("--hilos", type=int, default=4, help="llamadas simultaneas al revisor (4)")
     args = ap.parse_args()
 
-    clave = os.environ.get("HUMANIZAR_API_KEY")
+    clave = cubo.leer_clave()
     if not clave:
-        print("ERROR: define HUMANIZAR_API_KEY (ver scripts/cubo.py)", file=sys.stderr)
+        print(f"ERROR: falta la clave de la API: define HUMANIZAR_API_KEY o guardala en "
+              f"{cubo.ARCHIVO_CLAVE}", file=sys.stderr)
         return 2
     cabeceras = {}
     for par in filter(None, os.environ.get("HUMANIZAR_API_HEADERS", "").split(";")):

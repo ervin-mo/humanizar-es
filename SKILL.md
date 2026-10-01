@@ -70,10 +70,12 @@ Necesita dos cosas:
 1. **Su entorno de Python**: existe `<skill>/.venv/bin/python`. Si no, propónle al
    usuario crearlo (una vez, ~1 GB más ~2 GB de modelo en la primera corrida):
    `cd <skill> && python3 -m venv .venv && .venv/bin/pip install -r scripts/requirements.txt`
-2. **Un generador**: la variable `HUMANIZAR_API_KEY` (y `HUMANIZAR_API_URL`,
-   `HUMANIZAR_MODEL` si no es DeepSeek). Pídele al usuario que la exporte él en su
-   terminal. **Nunca escribas una clave en un archivo, en el chat ni en un commit.** Las
-   opciones de proveedor están en el README de la skill.
+2. **Un generador**: la clave de la API, en la variable `HUMANIZAR_API_KEY` o en el
+   archivo `~/.config/humanizar-es/api_key` (permisos 600). Usa el archivo si tu entorno
+   no les pasa a los comandos las variables con «KEY» en el nombre (Codex, por ejemplo).
+   Pídele al usuario que la guarde él. **Nunca la muestres, la repitas en el chat ni la
+   pongas dentro del repo o en un commit.** Por defecto se usa DeepSeek
+   (`deepseek-flash`); otros proveedores están en el README de la skill.
 
 Si el usuario no quiere o no puede configurar el cubo, sigue con la reescritura a mano
 (sección *Las palancas*) y dile con claridad qué esperar: en el benchmark, una reescritura

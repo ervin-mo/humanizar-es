@@ -101,6 +101,15 @@ export HUMANIZAR_API_URL=https://api.deepseek.com/chat/completions
 export HUMANIZAR_MODEL=deepseek-flash
 ```
 
+Si usas el cubo a través de un agente como Codex, guarda la clave en un archivo privado en
+lugar de exportarla: algunos agentes no les pasan a los comandos las variables con «KEY» en
+el nombre.
+
+```bash
+mkdir -p ~/.config/humanizar-es && chmod 700 ~/.config/humanizar-es
+printf '%s' 'tu-clave' > ~/.config/humanizar-es/api_key && chmod 600 ~/.config/humanizar-es/api_key
+```
+
 Los nombres de los modelos cambian con el tiempo (DeepSeek retiró `deepseek-chat` en julio
 de 2026). Para ver los vigentes de tu proveedor, sin gastar saldo:
 
