@@ -137,6 +137,58 @@ class Estilo(unittest.TestCase):
         self.assertIn(ORIGINAL, json.loads(r.stdout))
 
 
+class Cubo(unittest.TestCase):
+    """Las piezas del cubo que no necesitan red ni modelos."""
+
+    @classmethod
+    def setUpClass(cls):
+        import cubo
+        cls.cubo = cubo
+        cls.conceptos = vf.cargar_conceptos(CONCEPTOS)
+
+    def test_lee_json_y_rescata_respuestas_cortadas(self):
+        ev = self.cubo.extraer_variantes
+        self.assertEqual(ev('{"v": ["uno dos", "tres cuatro"]}'), ["uno dos", "tres cuatro"])
+        self.assertEqual(ev('{"v": ["Primera completa.", "Segunda cort'), ["Primera completa."])
+        self.assertEqual(ev("<think>...</think> sin json"), [])
+
+    def test_rechaza_concepto_perdido(self):
+        o = "Aristóteles defendió el principio de no contradicción en su obra."
+        c = "Aristóteles defendió el principio de contradicción en su obra."
+        self.assertIn(self.cubo.motivo_rechazo(o, c, self.conceptos), ("concepto", "negacion"))
+
+    def test_rechaza_negacion_perdida(self):
+        o = "No podemos conocer las cosas en sí tal como son."
+        c = "Podemos conocer las cosas en sí tal como son."
+        self.assertEqual(self.cubo.motivo_rechazo(o, c, self.conceptos), "negacion")
+
+    def test_rechaza_delator_nuevo(self):
+        o = "La metafísica es la pregunta más radical sobre la realidad."
+        c = "La metafísica constituye la pregunta más radical sobre la realidad."
+        self.assertEqual(self.cubo.motivo_rechazo(o, c, self.conceptos), "delator")
+
+    def test_acepta_giro_fiel(self):
+        o = "La física estudiaba las entidades sujetas al cambio empírico."
+        c = "La física se ocupaba de las entidades sometidas al cambio empírico."
+        self.assertIsNone(self.cubo.motivo_rechazo(o, c, self.conceptos))
+
+    def test_palabras_repetidas(self):
+        with open(ORIGINAL, encoding="utf-8") as fh:
+            self.assertEqual(self.cubo.palabras_repetidas(fh.read(), self.conceptos), ["metafísica"])
+
+    def test_partir_y_unir_conserva_el_texto(self):
+        with open(ORIGINAL, encoding="utf-8") as fh:
+            texto = fh.read()
+        partes = self.cubo.partir(texto)
+        self.assertTrue(partes[0]["titulo"])
+        self.assertEqual(" ".join(self.cubo.unir(partes).split()), " ".join(texto.split()))
+
+    def test_correlacion_de_rangos(self):
+        import calibrar
+        self.assertAlmostEqual(calibrar.spearman([1, 2, 3], [10, 20, 30]), 1.0)
+        self.assertAlmostEqual(calibrar.spearman([1, 2, 3], [30, 20, 10]), -1.0)
+
+
 class Orquestador(unittest.TestCase):
     def test_medir_rapido_propaga_fallo_de_fidelidad(self):
         r = correr("bash", os.path.join(SCRIPTS, "medir.sh"), ORIGINAL, CADENA_02,

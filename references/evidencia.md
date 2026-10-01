@@ -147,6 +147,40 @@ la 01 conserva más giros ásperos («La metafísica. Ahí está…», «Pregunt
 menos, con ropa nueva»). Si es así, lo que baja el score no es quitar marcas sino meter
 lo que un modelo no escribe: voz, ejemplos y decisiones del autor.
 
+### 4c. El cubo: reescritura guiada por un detector local
+
+Después de 4b se construyó `scripts/cubo.py` (ver README). Primero se comprobó que el
+detector local (`scripts/sustituto.py`, Binoculars + Fast-DetectGPT sobre Qwen2.5-0.5B)
+ordenaba como Grammarly las versiones ya medidas: lo hizo en las tres (00, 01, 04),
+incluida la 04 que `estilo.py` daba por buena.
+
+Grammarly, medido a mano, un escaneo por texto:
+
+| Texto | Grammarly | Sustituto 0.5B | Nota |
+|---|---|---|---|
+| Párrafo 1 original | 100% | −0.49 | control |
+| **Párrafo 1 por el cubo** | **0%** | −4.89 | `ejemplos/parrafo/` |
+| Ensayo, cubo con un error (solo giró 10 de 25 oraciones) | 80% | −4.63 | no incluido |
+| **Ensayo, cubo completo desde el original** | **39%** | −10.45 | `05-cubo-desde-original.txt` |
+| Ensayo, cubo desde la 01 con criterio de ritmo | 42% | −10.69 | `06-cubo-desde-01.txt` |
+
+Calibración (`scripts/calibrar.py`) contra los seis ensayos medidos en Grammarly:
+correlación de rangos **0.87** con el sustituto de 0.5B y **0.93** con el de 1.5B. El de
+1.5B nunca participó en el bucle y aun así ve mucho más humanas las versiones del cubo:
+la mejora no es solo un engaño al modelo chico.
+
+**El techo.** De 05 a 06 el sustituto siguió bajando, pero Grammarly no (39% → 42%).
+CleverHumanizer marcó 80% y 81%; en la 06 ya no señaló «longitud uniforme» ni «ritmos
+similares», pero siguió con «falta de voz propia», «frases predecibles» y «uso
+repetitivo de palabras clave».
+
+**El costo en calidad.** Revisadas a mano contra el original, las versiones 05 y 06
+tienen 3 y 4 oraciones con el sentido desviado; la 06 inventó un ejemplo («una piedra,
+una promesa, un número»). El sustituto premia el orden invertido y las palabras poco
+comunes. Por eso se agregó un revisor de sentido: en una prueba con esos 7 errores reales
+y 3 giros correctos, `deepseek-v4.1-flash` vetó los 7 errores y uno de los correctos.
+**El cubo con revisor no se ha medido en Grammarly todavía.**
+
 ---
 
 ## 5. Fidelidad de contenido

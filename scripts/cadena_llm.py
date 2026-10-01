@@ -36,7 +36,8 @@ def call(key, messages, temperature, max_tokens=4000):
     req = urllib.request.Request(
         URL,
         data=body,
-        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json",
+                 "User-Agent": "humanizar-es/1.2"},
     )
     for intento in range(4):
         try:

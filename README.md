@@ -20,24 +20,28 @@ Sirve de dos formas:
 
 ## Qué resultado da
 
-Sobre un ensayo académico generado con IA (Grammarly: 100% IA):
+Sobre un ensayo académico generado con IA, medido a mano en Grammarly:
 
-| Versión | ZeroGPT | Conceptos conservados |
+| Versión | Grammarly | Conceptos conservados |
 |---|---|---|
-| Original | 98.5% IA | — |
-| **Reescrito con esta guía** | **7.7% IA** | **27 de 27** |
-| Pasado por una cadena de traducción (método popular) | 81.2% IA | 25 de 27 — invirtió «principio de *no* contradicción» |
+| Original | 100% IA | — |
+| Reescrito por un modelo con esta guía | 75% IA | 27 de 27 |
+| Reescritura completa por un modelo, con cero frases típicas de IA | **100% IA** | 27 de 27 |
+| **El cubo** (reescritura guiada por un detector local, ver abajo) | **39% IA** | **27 de 27** |
+| Un párrafo suelto: original → cubo | **100% → 0%** | todo |
+
+Y en ZeroGPT: original 98.5% IA, reescrito con la guía 7.7%, y el método popular de
+cadena de traducción 81.2%, que además invirtió «principio de *no* contradicción».
 
 Y la otra mitad de la historia, igual de importante: **un artículo de Wikipedia en
 español escrito por personas en 2014 sacó 46.5% en ZeroGPT**, y GPTZero lo marcó como
 IA. Los detectores se equivocan con texto humano; por eso este proyecto mide siempre
 contra un control humano y nunca promete «pasar todos los detectores».
 
-Y un resultado en contra, que también cuenta: en Grammarly, esa versión bajó solo a
-**75%**, y una reescritura completa posterior, con **cero** frases típicas de IA y
-mejores números en todas las métricas de este repo, sacó **100%**. Quitar las marcas no
-basta cuando el texto entero lo vuelve a escribir un modelo; lo que más falta es voz
-propia del autor.
+Lo que enseñan estos números: **quitar las frases típicas de IA no basta** (la fila de
+100%). Lo que bajó de verdad fue elegir cada giro midiéndolo contra un detector. Y hay un
+techo: el cubo se estancó cerca de 40% en Grammarly, y otro detector (CleverHumanizer)
+siguió marcando ~80% por «falta de voz propia». Esa parte solo la pone el autor.
 
 Es un solo texto de prueba: una demostración bien controlada, no una estadística. El
 detalle, con sus limitaciones, está en [`references/evidencia.md`](references/evidencia.md).
@@ -81,6 +85,42 @@ Delatores en 00-original.txt:
 `verificar_fidelidad.py` comprueba que los nombres, cifras y términos del original
 sigan en la versión nueva, y avisa si desapareció una negación. Para trabajo serio,
 dale tu propia lista de conceptos (ver [Verificar el contenido](#verificar-el-contenido)).
+
+---
+
+## El cubo: reescritura guiada por un detector
+
+Como un cubo Rubik: se gira una cara (una oración), se mira si el cubo quedó mejor y solo
+entonces se conserva el giro. Lo implementa `scripts/cubo.py`:
+
+1. Un modelo de lenguaje (cualquier API compatible con OpenAI; puedes poner varios, de
+   distintas familias) propone variantes de cada oración.
+2. Se descartan las que pierden un concepto, una negación o meten una frase típica de IA.
+3. Un detector local (`scripts/sustituto.py`: Binoculars + Fast-DetectGPT sobre Qwen2.5)
+   mide cada variante en su párrafo, y se quedan las que más bajan el puntaje.
+4. Un revisor (otro modelo) veta las que cambian el sentido, inventan o no tienen lógica.
+
+```bash
+python3 -m venv .venv && .venv/bin/pip install -r scripts/requirements.txt
+export HUMANIZAR_API_KEY=...                     # tu proveedor
+export HUMANIZAR_API_URL=https://api.deepseek.com/chat/completions
+export HUMANIZAR_MODEL=deepseek-chat             # o varios: "modelo-a,modelo-b"
+.venv/bin/python scripts/cubo.py original.txt -o salida.txt --conceptos conceptos.txt
+```
+
+Antes de confiar en él con tu detector, **calíbralo**: mide unos textos en ese detector,
+anótalos en un archivo y corre `scripts/calibrar.py`. Contra Grammarly, el detector local
+ordenó los textos del benchmark con una correlación de 0.87 (1.0 sería perfecto).
+
+Lo que hay que saber:
+
+- **Cuesta llamadas**: el ensayo de 725 palabras gastó ~500 mil tokens del generador.
+- **Tarda**: unos 20 minutos por ensayo, la mayor parte esperando al generador.
+- **Corre en CPU por defecto.** En Mac, usar la GPU (`HUMANIZAR_DISPOSITIVO=mps`) es más
+  rápido pero traba la pantalla mientras corre.
+- **Relee el resultado.** El detector local premia el orden invertido y las palabras
+  raras; el texto puede quedar acartonado. En el benchmark, antes de existir el revisor,
+  el cubo cambió el sentido de 3–4 oraciones e inventó un ejemplo.
 
 ---
 
@@ -169,6 +209,9 @@ original.
 | `scripts/score-zerogpt.sh`, `score-gptzero.sh` | [ego lite](https://lite.ego.app/) (macOS; su comando es `ego-browser`) | detectores web automatizados |
 | `scripts/score-grammarly.sh` | ego lite + sesión de Grammarly | detector de Grammarly (se corre aparte) |
 | `scripts/medir.sh` | Python | corre todo lo anterior que tengas instalado, salvo Grammarly |
+| `scripts/sustituto.py` | `torch` y `transformers` | el detector local que guía al cubo |
+| `scripts/calibrar.py` | `torch` y `transformers` | qué tan bien predice el sustituto a TU detector |
+| `scripts/cubo.py` | lo anterior + una API de modelo de lenguaje | reescritura guiada por el detector |
 
 ```bash
 # modelo local
@@ -195,8 +238,9 @@ score, límites de uso gratuito): [`references/detectores.md`](references/detect
 2. **Los detectores marcan texto humano**, sobre todo en registro formal.
 3. **Un detector puede cambiar de opinión** sobre el mismo texto el mismo día (le pasó
    a GPTZero con el Quijote).
-4. **Las métricas de este repo no predicen a los detectores comerciales.** La versión
-   con mejores números sacó 100% en Grammarly. Perplejidad y burstiness tampoco miden
+4. **Las métricas de estilo de este repo no predicen a los detectores comerciales.** La
+   versión con cero frases típicas de IA sacó 100% en Grammarly. El detector local del
+   cubo sí ordena parecido a Grammarly, pero llega a un techo (~40%). Perplejidad y burstiness tampoco miden
    «humanidad»: el texto humano comparable fue *más* previsible que el generado.
 5. **Un solo texto de prueba**, académico. No sabemos cuánto se generaliza.
 6. **Analizar varios documentos del mismo autor** revela patrones que uno solo no

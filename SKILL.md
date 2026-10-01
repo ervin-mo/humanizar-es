@@ -97,6 +97,14 @@ corrector lo detectó.
 El script solo comprueba lo que está en la lista. Relee además el texto completo
 contra el original: títulos, subtítulos y matices no se verifican solos.
 
+### 6b. (Opcional) El cubo
+
+Si el usuario tiene `scripts/cubo.py` configurado (una API de modelo de lenguaje y el
+`.venv`), puede pasar el texto por él después de tu reescritura. En el benchmark llevó un
+ensayo de 100% a 39% en Grammarly. Corre en CPU y tarda unos 20 minutos por ensayo: avisa
+antes de lanzarlo. Después **relee cada oración contra el original**: el cubo puede
+desviar el sentido o volver el texto acartonado, y eso se corrige a mano.
+
 ### 7. Medir el resultado y entregar
 
 ```bash
