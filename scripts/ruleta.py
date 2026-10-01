@@ -233,7 +233,7 @@ def main():
         cabeceras[k.strip()] = v.strip().replace("{uuid}", str(uuid.uuid4()))
     gen = cubo.Generador(
         os.environ.get("HUMANIZAR_API_URL", "https://api.deepseek.com/chat/completions"),
-        os.environ.get("HUMANIZAR_MODEL", "deepseek-chat"), clave, cabeceras, 0.8,
+        os.environ.get("HUMANIZAR_MODEL", "deepseek-flash"), clave, cabeceras, 0.8,
         revisor=os.environ.get("HUMANIZAR_REVISOR"))
 
     with open(args.original, encoding="utf-8") as fh:

@@ -19,8 +19,8 @@ detector que te importa y relee el texto: el sustituto no entiende el sentido.
 El generador es cualquier API compatible con OpenAI (chat/completions):
   export HUMANIZAR_API_KEY=...
   export HUMANIZAR_API_URL=https://api.deepseek.com/chat/completions   # por defecto
-  export HUMANIZAR_MODEL=deepseek-chat         # por defecto; varios separados por coma
-  export HUMANIZAR_REVISOR=deepseek-chat       # modelo que veta cambios de sentido
+  export HUMANIZAR_MODEL=deepseek-flash         # por defecto; varios separados por coma
+  export HUMANIZAR_REVISOR=deepseek-flash       # modelo que veta cambios de sentido
   # cabeceras extra, separadas por ';'  (OpenCode Go exige x-opencode-session)
   export HUMANIZAR_API_HEADERS="x-opencode-session: {uuid}"   # {uuid} se reemplaza solo
 
@@ -393,7 +393,7 @@ def main():
         cabeceras[k.strip()] = v.strip().replace("{uuid}", str(uuid.uuid4()))
     gen = Generador(
         os.environ.get("HUMANIZAR_API_URL", "https://api.deepseek.com/chat/completions"),
-        os.environ.get("HUMANIZAR_MODEL", "deepseek-chat"),
+        os.environ.get("HUMANIZAR_MODEL", "deepseek-flash"),
         clave, cabeceras, args.temperatura,
         revisor=os.environ.get("HUMANIZAR_REVISOR"),
     )

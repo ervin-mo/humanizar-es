@@ -16,7 +16,7 @@ cuatro llamadas por parrafo.
 
   export HUMANIZAR_API_KEY=...                       # obligatoria
   export HUMANIZAR_API_URL=https://api.deepseek.com/chat/completions   # por defecto
-  export HUMANIZAR_MODEL=deepseek-chat               # por defecto
+  export HUMANIZAR_MODEL=deepseek-flash               # por defecto
   python3 scripts/cadena_llm.py entrada.txt salida.txt
 """
 import json
@@ -26,7 +26,7 @@ import time
 import urllib.request
 
 URL = os.environ.get("HUMANIZAR_API_URL", "https://api.deepseek.com/chat/completions")
-MODEL = os.environ.get("HUMANIZAR_MODEL", "deepseek-chat")
+MODEL = os.environ.get("HUMANIZAR_MODEL", "deepseek-flash")
 
 
 def call(key, messages, temperature, max_tokens=4000):

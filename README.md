@@ -98,7 +98,14 @@ La primera corrida descarga el modelo local (Qwen2.5-0.5B, ~2 GB) a `~/.cache/hu
 ```bash
 export HUMANIZAR_API_KEY=tu-clave
 export HUMANIZAR_API_URL=https://api.deepseek.com/chat/completions
-export HUMANIZAR_MODEL=deepseek-chat
+export HUMANIZAR_MODEL=deepseek-flash
+```
+
+Los nombres de los modelos cambian con el tiempo (DeepSeek retiró `deepseek-chat` en julio
+de 2026). Para ver los vigentes de tu proveedor, sin gastar saldo:
+
+```bash
+curl -s https://api.deepseek.com/models -H "Authorization: Bearer $HUMANIZAR_API_KEY"
 ```
 
 Otros proveedores, mismo formato:
@@ -113,8 +120,8 @@ Otros proveedores, mismo formato:
 Opcionales:
 
 ```bash
-export HUMANIZAR_MODEL="deepseek-chat,otro-modelo"   # varias familias, se reparten las variantes
-export HUMANIZAR_REVISOR=deepseek-chat              # quién veta los cambios de sentido
+export HUMANIZAR_MODEL="deepseek-flash,otro-modelo"   # varias familias, se reparten las variantes
+export HUMANIZAR_REVISOR=deepseek-flash              # quién veta los cambios de sentido
 ```
 
 ### 3. Anotar lo que no se puede perder
