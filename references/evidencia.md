@@ -212,6 +212,52 @@ modo no se ha medido todavía con un ensayo completo.**
 
 ---
 
+### 4e. El ensayo completo: modelo base + redacción imperfecta (1 de octubre de 2026)
+
+Un segundo texto: un ensayo de divulgación sobre turismo e inteligencia artificial en
+Chiapas, 1,150 palabras en 9 párrafos, generado con IA. No se publica (es de un usuario);
+se publican los números. Cada número es un escaneo a mano, con el cuadro del detector
+vacío antes de pegar.
+
+| Versión | Grammarly (% IA) | CleverHumanizer | Notas |
+|---|---|---|---|
+| Cubo, párrafo por párrafo | 67% | 80% IA | 46 min, ~790 mil tokens; el revisor vació 3 párrafos (bug, corregido) |
+| HIP (`hip.py`), una pasada | 77% | 81% IA | 4 min en CPU, $0 |
+| Estructura reorganizada a mano por un modelo de chat | 64%* | 75% IA | *el cuadro tenía pegado otro texto |
+| La misma, sin repeticiones ni frases hechas | **92%** | 75% IA | reescribir con un modelo de chat lo empeoró |
+| Cubo + ensuciar con erratas, ligero | 37% | — | |
+| Cubo + ensuciar con erratas, medio | 15% | — | |
+| Cubo + ensuciar con erratas, fuerte | **4%** | — | |
+| Original sin reescribir + ensuciar con erratas, fuerte | 44% | 98% humano | ensuciar solo no basta para Grammarly |
+| HIP + ensuciar con erratas, fuerte | 12% | **95% humano** | |
+| HIP + ensuciar solo redacción, fuerte | 27% | — | sin ningún error de ortografía |
+| **HIP + ensuciar solo redacción, extra** | **8%** | — | **la receta por defecto** |
+
+Lo que enseña:
+
+1. **Cambiar de modelo de chat no mueve a los detectores.** El cubo (DeepSeek) y la
+   reorganización hecha por otro modelo de chat se quedaron entre 64% y 92%. Coincide con
+   Xu et al. 2026 (*Base Models Look Human To AI Detectors*, arXiv:2605.19516): los
+   detectores reconocen sobre todo la huella del entrenamiento de chat, y los modelos base
+   les parecen humanos.
+2. **El modelo base solo no basta con un ensayo entero** (77%), pero deja el texto listo
+   para el siguiente paso.
+3. **La redacción demasiado limpia delata.** Comerse comas y pegar oraciones con coma bajó
+   el mismo texto de 77% a 8%, con la ortografía intacta. La dosis importa: ligero 37%,
+   medio 15%, fuerte 4% (con el cubo); fuerte 27% y extra 8% (con HIP, solo redacción).
+4. **Las erratas no hacen falta.** Con HIP, solo redacción (8%) le ganó a redacción más
+   erratas (12%).
+5. **Los dos pasos se complementan.** Ensuciar el original sin reescribirlo convenció a
+   CleverHumanizer (98% humano) pero no a Grammarly (44%).
+
+Detector sustituto probado y descartado: Jev (TypeSafe, `jev-1.13.0`), preguntándole si el
+texto lo escribió una IA. Spearman contra Grammarly en 12 textos: 0.24. Distingue los
+extremos (Quijote 0.19, párrafo original 0.74 contra párrafo del cubo 0.57), pero da casi
+lo mismo a todas las versiones del ensayo (0.76–0.82) y ve como IA a Wikipedia 2014 (0.74).
+
+Límites de esta sección: un solo ensayo, un escaneo por versión, y la receta exacta no se
+midió en CleverHumanizer.
+
 ## 5. Fidelidad de contenido
 
 27 conceptos del original (`ejemplos/conceptos-metafisica.txt`):

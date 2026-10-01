@@ -1,8 +1,8 @@
 ---
 name: humanizar-es
-description: Reescribe texto en español generado por IA para que los detectores (Grammarly, GPTZero, ZeroGPT, CleverHumanizer) dejen de marcarlo, sin cambiar lo que dice. Usa "el cubo", una reescritura oración por oración guiada por un detector local, que llevó un párrafo de 100% IA a 0% en Grammarly. Úsalo cuando pidan "humanizar", "quitar las marcas de IA", "que no suene a ChatGPT", "que no lo detecte el detector", "que suene más natural" o "reescribir esto con mi voz". Verifica que no se pierda contenido y no promete pasar todos los detectores.
+description: Reescribe texto en español generado por IA para que los detectores (Grammarly, GPTZero, ZeroGPT, CleverHumanizer) dejen de marcarlo, sin cambiar lo que dice. Usa un modelo base local (hip.py) y luego imperfecciones de redacción (ensuciar.py), sin API y sin costo; llevó un ensayo completo a 8% en Grammarly. Úsalo cuando pidan "humanizar", "quitar las marcas de IA", "que no suene a ChatGPT", "que no lo detecte el detector", "que suene más natural" o "reescribir esto con mi voz". Verifica que no se pierda contenido y no promete pasar todos los detectores.
 metadata:
-  version: "1.2.0"
+  version: "1.3.0"
   idioma: es
   evidencia: references/evidencia.md
 ---
@@ -62,64 +62,76 @@ Crítica de la razón pura
 
 Para arrancar: `python3 <skill>/scripts/verificar_fidelidad.py 00-original.txt --listar`
 
-### 4. Comprobar que el cubo está listo
+### 4. Comprobar que la receta está lista
 
-El cubo es lo que de verdad baja el score; la reescritura a mano no basta (ver *Límites*).
-Necesita dos cosas:
+La receta es `hip.py` (reescribe con un modelo base local) y luego `ensuciar.py`
+(imperfecciones de redacción). La reescritura a mano no basta (ver *Límites*). Hace falta,
+una sola vez:
 
-1. **Su entorno de Python**: existe `<skill>/.venv/bin/python`. Si no, propónle al
-   usuario crearlo (una vez, ~1 GB más ~2 GB de modelo en la primera corrida):
+1. **llama.cpp**: `llama-completion` o `llama-cli` en el PATH (en Mac:
+   `brew install llama.cpp`).
+2. **El entorno de Python**: existe `<skill>/.venv/bin/python`. Si no:
    `cd <skill> && python3 -m venv .venv && .venv/bin/pip install -r scripts/requirements.txt`
-2. **Un generador**: la clave de la API, en la variable `HUMANIZAR_API_KEY` o en el
-   archivo `~/.config/humanizar-es/api_key` (permisos 600). Usa el archivo si tu entorno
-   no les pasa a los comandos las variables con «KEY» en el nombre (Codex, por ejemplo).
-   Pídele al usuario que la guarde él. **Nunca la muestres, la repitas en el chat ni la
-   pongas dentro del repo o en un commit.** Por defecto se usa DeepSeek
-   (`deepseek-flash`); otros proveedores están en el README de la skill.
+3. **El modelo**: `<skill>/scripts/instalar_hip.sh` (unos 5.5 GB en
+   `~/.cache/humanizar-es/hip`; necesita red).
 
-Si el usuario no quiere o no puede configurar el cubo, sigue con la reescritura a mano
-(sección *Las palancas*) y dile con claridad qué esperar: en el benchmark, una reescritura
-a mano bien hecha se quedó en 75% en Grammarly.
+Pídele permiso al usuario antes de instalar: son ~9 GB en total y descargas largas.
 
-### 5. Pasar el texto por el cubo
+### 5. Reescribir con el modelo local
 
-Antes de lanzarlo, avisa: tarda unos 5 minutos por párrafo de 120 palabras (unos 30
-para un ensayo), gasta llamadas del generador y usa la CPU. Luego:
+Avisa antes: unos 30 segundos por párrafo en CPU (4 a 7 minutos un ensayo de dos
+cuartillas), sin costo ni API. Luego:
 
 ```bash
-<skill>/.venv/bin/python <skill>/scripts/cubo.py 00-original.txt -o 01-cubo.txt \
-    --conceptos conceptos.txt --registro academico
+<skill>/.venv/bin/python <skill>/scripts/hip.py 00-original.txt -o 01-hip.txt --conceptos conceptos.txt
 ```
 
-Trabaja párrafo por párrafo y guarda el avance al terminar cada uno. Si tu entorno corta
-los comandos largos, lánzalo en segundo plano y revisa su salida, o pídele al usuario que
-lo corra en su terminal. **No uses la GPU** (`HUMANIZAR_DISPOSITIVO=mps`) en la Mac del
-usuario sin preguntarle: traba la pantalla mientras corre.
+Guarda el avance tras cada párrafo. Si tu entorno corta los comandos largos, lánzalo en
+segundo plano con `nohup` y revisa su salida. Al final avisa qué párrafos dejó como el
+original porque perdían conceptos.
 
-### 6. Verificar y releer (bloqueante)
+### 6. Ensuciar la redacción
 
 ```bash
-python3 <skill>/scripts/verificar_fidelidad.py 00-original.txt 01-cubo.txt --conceptos conceptos.txt
-python3 <skill>/scripts/estilo.py 00-original.txt 01-cubo.txt
+python3 <skill>/scripts/ensuciar.py 01-hip.txt -o 02-final.txt --conceptos conceptos.txt
 ```
 
-El primero sale con código 1 si falta un concepto y lista las negaciones que
-desaparecieron. Después **lee cada oración del resultado contra la original**. El cubo
-puede:
+Por defecto (nivel `extra`) se come algunas comas y pega algunas oraciones con coma, sin
+tocar la ortografía. Así se midió el 8% en Grammarly. **No uses `--ortografia`** salvo
+que el usuario lo pida: mete erratas y quita acentos, y eso se nota en un texto firmado.
 
-- desviar el sentido («se detiene ante» → «halla su límite en»);
-- inventar algo («una piedra, una promesa, un número»);
-- dejar una frase acartonada por el orden invertido o una palabra rara.
+### 7. Verificar y releer (bloqueante)
 
-Donde pase, **vuelve a poner la oración original** o corrige solo la palabra culpable.
-No la reescribas tú desde cero: una oración reescrita por un modelo vuelve a sonar a
-modelo, y eso es justo lo que el cubo quitó.
+```bash
+python3 <skill>/scripts/verificar_fidelidad.py 00-original.txt 02-final.txt --conceptos conceptos.txt
+```
 
-### 7. Entregar
+Sale con código 1 si falta un concepto y lista las negaciones que desaparecieron.
+Después **lee cada párrafo del resultado contra el original**. El modelo local puede:
 
-El archivo final, la tabla de fidelidad y la lista de oraciones que corregiste a mano.
+- cambiar un detalle («limpian» → «lavan los platos», «foráneas» → «extranjeras»);
+- comerse una idea secundaria;
+- dejar un error de concordancia («los manos»).
+
+Corrige **solo la palabra culpable**, a mano. No le pidas a un modelo de chat que
+reescriba la oración: le devuelve al texto la huella que el modelo base le quitó.
+
+### 8. Entregar
+
+El archivo final, la tabla de fidelidad y la lista de lo que corregiste a mano.
 Recuérdale al usuario que mida en su detector **junto con un texto suyo escrito sin IA**:
 si ese también sale como IA, el detector no está midiendo.
+
+### Alternativa: el cubo (con API)
+
+Si no se puede correr el modelo local, `scripts/cubo.py` reescribe oración por oración
+con una API compatible con OpenAI, guiado por un detector local, y luego se pasa por
+`ensuciar.py` igual. Es más lento (46 minutos el mismo ensayo) y gasta API. Necesita la
+clave en `HUMANIZAR_API_KEY` o en `~/.config/humanizar-es/api_key` (permisos 600; usa el
+archivo si tu entorno no les pasa a los comandos las variables con «KEY» en el nombre,
+como Codex). Pídele al usuario que la guarde él. **Nunca la muestres, la repitas en el
+chat ni la pongas dentro del repo o en un commit.** **No uses la GPU**
+(`HUMANIZAR_DISPOSITIVO=mps`) en la Mac del usuario sin preguntarle: traba la pantalla.
 
 ### Herramientas opcionales
 
@@ -131,7 +143,7 @@ si ese también sale como IA, el detector no está midiendo.
 
 ## Las palancas (reescritura a mano)
 
-Para cuando no hay cubo, o para corregir a mano lo que el cubo dejó raro. Por sí solas
+Para cuando no se puede correr la receta, o para corregir a mano lo que dejó raro. Por sí solas
 no bastan para pasar Grammarly (ver *Límites*). El orden es de uso práctico, no un ranking medido: el benchmark midió variantes
 completas, no cada palanca por separado.
 
@@ -179,8 +191,11 @@ detector y leyó peor: más no es mejor.
 - **Cadenas de traducción** (español → chino → japonés → finés → español). Medido:
   bajó poco (98.5% → 81.2% en ZeroGPT) e invirtió un concepto. `<skill>/scripts/cadena_llm.py`
   queda solo para reproducir el experimento.
-- **Erratas deliberadas.** Cuestan reputación en cualquier texto firmado y no
-  resuelven la regularidad, que es lo que delata.
+- **Erratas deliberadas.** Cuestan reputación en cualquier texto firmado. Las
+  imperfecciones de redacción de `ensuciar.py` bajaron Grammarly más que las de
+  ortografía (8% contra 12%), así que no hacen falta.
+- **Pedirle a un modelo de chat que «lo haga más humano».** Cambiar de modelo de chat no
+  movió a los detectores: todos dejan la misma huella.
 - **Sinónimos palabra por palabra.** El ritmo y la estructura siguen iguales. Incluso
   guiados por el detector (`scripts/ruleta.py`), no movieron a Grammarly.
 
@@ -198,10 +213,9 @@ detector y leyó peor: más no es mejor.
    comparable (Wikipedia 2014) tuvo *menos* perplejidad que el ensayo generado. Son
    las señales que miran los detectores, no un retrato de cómo escribe la gente.
 5. **Quitar las frases típicas de IA no basta.** Una reescritura completa hecha por un
-   modelo, con cero delatores, sacó 100% en Grammarly. Lo que funcionó fue el cubo: un
-   párrafo pasó de 100% a 0% en Grammarly y a 99% humano en CleverHumanizer. Pero el
-   ensayo completo, girado de una vez, se quedó en 39%; el modo párrafo por párrafo aún
-   no se ha medido con un ensayo entero. No prometas un número.
+   modelo, con cero delatores, sacó 100% en Grammarly. Lo que funcionó con un ensayo
+   completo fue `hip.py` + `ensuciar.py`: 8% en Grammarly. La variante con erratas sacó
+   95% humano en CleverHumanizer; la receta exacta no se midió ahí. No prometas un número.
 6. **Un solo texto de prueba.** El benchmark es un caso bien controlado, no una
    estadística. Diferencias de pocos puntos no significan nada.
 7. **Comparar varios documentos del mismo autor** revela patrones que un documento
@@ -221,7 +235,10 @@ entrega académica, avisa del riesgo antes de proceder: ya no es un problema té
 - `references/checklist.md` — control de calidad antes de entregar
 - `references/detectores.md` — cómo medir con cada instrumento y sus trampas
 - `references/evidencia.md` — el benchmark completo y la literatura
-- `scripts/cubo.py` — la reescritura guiada por detector (necesita `.venv` y una API)
+- `scripts/hip.py` — la reescritura con el modelo base local (necesita `instalar_hip.sh`)
+- `scripts/ensuciar.py` — las imperfecciones de redacción, sin dependencias
+- `scripts/instalar_hip.sh` — descarga y prepara el modelo local
+- `scripts/cubo.py` — la reescritura guiada por detector (alternativa con API)
 - `scripts/sustituto.py` — el detector local que guía al cubo
 - `scripts/estilo.py` — medidor de estilo, sin dependencias
 - `scripts/verificar_fidelidad.py` — verificación de contenido, sin dependencias

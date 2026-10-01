@@ -154,19 +154,28 @@ class Generador:
             respuestas = ex.map(lambda m: self._llamar(m, prompt, self.temperatura), self.modelos)
         return [v for r in respuestas for v in extraer_variantes(r)]
 
-    def revisar(self, pares):
+    def revisar(self, pares, intentos=2):
         """pares: [(original, nueva)]. Devuelve el conjunto de indices rechazados.
-        Si el revisor falla, rechaza todo: mejor no cambiar que cambiar el sentido."""
+        Si el revisor contesta vacio o ilegible, reintenta y luego parte el lote en
+        mitades; solo un par que sigue sin respuesta se rechaza: mejor no cambiar
+        que cambiar el sentido."""
         texto = "\n\n".join(f"Par {i}:\nORIGINAL: {o}\nNUEVA: {n}" for i, (o, n) in enumerate(pares))
-        contenido = self._llamar(self.revisor, PROMPT_REVISOR.format(pares=texto), 0.0)
-        m = re.search(r"\{[^{}]*\}", contenido or "")
-        try:
-            return {int(i) for i in json.loads(m.group(0))["rechazar"]}
-        except Exception:
-            self.revisor_fallos += 1
-            print(f"   (el revisor no dio una respuesta legible; se rechaza el lote: "
-                  f"{(contenido or '')[:120]!r})", flush=True)
-            return set(range(len(pares)))
+        contenido = ""
+        for _ in range(intentos):
+            contenido = self._llamar(self.revisor, PROMPT_REVISOR.format(pares=texto), 0.0)
+            m = re.search(r"\{[^{}]*\}", contenido or "")
+            try:
+                return {int(i) for i in json.loads(m.group(0))["rechazar"]}
+            except Exception:
+                continue
+        if len(pares) > 1:
+            mitad = len(pares) // 2
+            return (self.revisar(pares[:mitad], 1)
+                    | {mitad + i for i in self.revisar(pares[mitad:], 1)})
+        self.revisor_fallos += 1
+        print(f"   (el revisor no dio una respuesta legible; se rechaza el par: "
+              f"{(contenido or '')[:120]!r})", flush=True)
+        return {0}
 
     def _llamar(self, modelo, prompt, temperatura):
         cuerpo = json.dumps({
@@ -222,6 +231,8 @@ def conceptos_en(texto, conceptos):
 
 def motivo_rechazo(original, candidata, conceptos):
     """None si la candidata es aceptable; si no, la razon."""
+    if "*" in candidata and "*" not in original:
+        return "simbolo"  # el modelo copio el * de un concepto con prefijo
     n_o, n_c = len(original.split()), len(candidata.split())
     if n_c < 0.4 * n_o or n_c > 1.8 * n_o + 4:
         return "longitud"
@@ -290,8 +301,10 @@ def correr(texto, gen, sust, conceptos, registro, n, rondas, hilos, salida=None,
         def pedir(t):
             pi, oi = t
             o = parrafos[pi]["oraciones"][oi]
+            # sin el * de los prefijos: el modelo lo copiaria tal cual al texto
+            protegidos = [c.rstrip("*").strip() for c in conceptos_en(o, conceptos)]
             return t, o, gen.variantes(o, " ".join(parrafos[pi]["oraciones"]), n,
-                                       REGISTROS[registro], conceptos_en(o, conceptos), repetidas)
+                                       REGISTROS[registro], protegidos, repetidas)
 
         with cf.ThreadPoolExecutor(max_workers=hilos) as ex:
             propuestas = list(ex.map(pedir, tareas))
@@ -320,6 +333,7 @@ def correr(texto, gen, sust, conceptos, registro, n, rondas, hilos, salida=None,
         # B. el revisor de sentido veta los giros que cambian, inventan o no tienen logica
         pares = [(original, c) for _, original, buenas in ranking for c in buenas]
         vetados = set()
+        fallos_antes = getattr(gen, "revisor_fallos", 0)
         lotes = [list(range(k, min(k + 15, len(pares)))) for k in range(0, len(pares), 15)]
 
         def revisar(lote):
@@ -328,6 +342,8 @@ def correr(texto, gen, sust, conceptos, registro, n, rondas, hilos, salida=None,
         with cf.ThreadPoolExecutor(max_workers=hilos) as ex:
             for r in ex.map(revisar, lotes):
                 vetados |= r
+
+        hubo_fallos = getattr(gen, "revisor_fallos", 0) > fallos_antes
 
         # C. quedarse con el mejor giro aprobado de cada oracion
         cambios, k = 0, 0
@@ -352,8 +368,8 @@ def correr(texto, gen, sust, conceptos, registro, n, rondas, hilos, salida=None,
             with open(salida, "w", encoding="utf-8") as fh:
                 fh.write(unir(parrafos))
             print(f"  (guardado en {salida})", flush=True)
-        if cambios == 0:
-            break
+        if cambios == 0 and not hubo_fallos:
+            break  # nada mejora; si el revisor fallo, la ronda siguiente merece otra oportunidad
 
     final = objetivo(sust, unir(parrafos))
     return unir(parrafos), inicial, final, stats

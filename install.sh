@@ -106,5 +106,5 @@ echo
 echo "Listo. Abre una sesion nueva de tu agente y pidele, por ejemplo:"
 echo "  «humaniza este texto sin cambiar lo que dice»"
 echo
-echo "Para el cubo (la reescritura guiada por detector) hace falta ademas, una vez:"
-echo "  cd \"$AQUI\" && python3 -m venv .venv && .venv/bin/pip install -r scripts/requirements.txt"
+echo "Para la receta (hip.py + ensuciar.py) hace falta ademas, una vez:"
+echo "  cd \"$AQUI\" && python3 -m venv .venv && .venv/bin/pip install -r scripts/requirements.txt && ./scripts/instalar_hip.sh"

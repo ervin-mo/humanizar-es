@@ -1,5 +1,19 @@
 # Cambios
 
+## 1.3.0 — 1 de octubre de 2026
+
+- **Receta nueva, local y sin costo:** `scripts/hip.py` reescribe cada párrafo con un
+  modelo base (Qwen3-4B-Base + adaptador HIP de Xu et al. 2026) y `scripts/ensuciar.py`
+  le quita la redacción demasiado limpia. Un ensayo completo de 1,150 palabras: 8% IA en
+  Grammarly, en unos 4 minutos de CPU.
+- `scripts/instalar_hip.sh`: descarga el modelo y convierte el adaptador (~5.5 GB).
+- `ensuciar.py` no toca la ortografía por defecto; `--ortografia` es opcional.
+- El cubo pasa a ser la alternativa con API.
+- Corregido: si el revisor del cubo contestaba vacío, se vetaba el lote entero y el
+  párrafo se quedaba sin tocar. Ahora reintenta y parte el lote.
+- Corregido: el `*` de los conceptos por prefijo ya no se cuela al texto.
+- Evidencia nueva en `references/evidencia.md` §4e.
+
 ## 1.2.0 — 30 de septiembre de 2026
 
 - **El cubo** (`scripts/cubo.py`): reescritura oración por oración guiada por un detector

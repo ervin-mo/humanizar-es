@@ -5,7 +5,7 @@
 
 Herramientas para que un texto en español escrito con IA **deje de detectarse como IA
 sin cambiar lo que dice**, con resultados medidos en detectores reales en lugar de
-promesas.
+promesas. Corre en tu computadora, sin API y sin costo.
 
 > *English summary at the end.*
 
@@ -13,64 +13,57 @@ promesas.
 
 ## El resultado
 
-Un párrafo de un ensayo generado con IA, medido a mano en dos detectores:
+Un ensayo completo de 1,150 palabras generado con IA, medido a mano en dos detectores:
 
-| Versión | Grammarly | CleverHumanizer |
-|---|---|---|
-| Original | 100% IA | — |
-| **Pasado por el cubo** (`scripts/cubo.py`) | **0% IA** | **99% humano** |
+| Versión | Grammarly | CleverHumanizer | Tiempo | Costo |
+|---|---|---|---|---|
+| Reescrito por un modelo de chat (el cubo) | 67% IA | 80% IA | 46 min | API |
+| Reescrito por un modelo base local (`hip.py`) | 77% IA | 81% IA | 4 min | $0 |
+| **`hip.py` + `ensuciar.py`** | **8% IA** | **95% humano**\* | **4 min** | **$0** |
 
-Mismo contenido, mismos conceptos. Los textos están en
-[`ejemplos/parrafo/`](ejemplos/parrafo/).
+\* El 95% de CleverHumanizer se midió con la variante que además tenía errores de
+ortografía (12% en Grammarly). La receta de abajo **no mete errores de ortografía**:
+solo imperfecciones de redacción, y en Grammarly le fue mejor.
 
-El camino hasta ahí también está medido, con el ensayo completo en Grammarly:
+Mismo contenido: los 38 conceptos del original siguen ahí.
 
-| Qué se intentó | Grammarly |
-|---|---|
-| El ensayo original | 100% IA |
-| Reescrito por un modelo siguiendo reglas de estilo | 75% IA |
-| Reescrito por un modelo, pulido y sin ninguna frase típica de IA | **100% IA** |
-| El cubo, girando todo el ensayo de una vez | 39% IA |
+**Los dos descubrimientos:**
 
-**El descubrimiento central:** quitar las frases típicas de IA no sirve. Un detector como
-Grammarly reconoce la prosa de un modelo aunque esté pulida. Lo que funciona es
-**reescribir cada oración probando muchas variantes y quedarse con la que un detector
-local ve menos como IA**: elegir midiendo, no adivinar.
+1. **Los detectores reconocen la huella del entrenamiento de chat, no «la IA».** Cualquier
+   modelo de chat que reescriba (DeepSeek, GPT, Claude, Kimi…) deja esa huella. El texto
+   de un modelo **base**, sin entrenamiento de chat, les parece humano
+   ([Xu et al. 2026](https://arxiv.org/abs/2605.19516)).
+2. **Los detectores castigan el texto demasiado limpio.** Comas de manual, una oración por
+   idea, ritmo parejo. Comerse algunas comas y pegar algunas oraciones con coma, como
+   hace cualquiera que escribe rápido, bajó Grammarly de 77% a 8%, sin tocar la
+   ortografía.
 
-Sé consciente del tamaño de la evidencia: el 100% → 0% es un párrafo; el ensayo completo,
-girado de una vez, se quedó en 39%. Por eso el cubo ahora trabaja **párrafo por párrafo**,
-como en la prueba que funcionó, aunque esa forma todavía no se ha medido con un ensayo
-completo. Todo el detalle, con sus límites, en
-[`references/evidencia.md`](references/evidencia.md).
+Lo que **no** funcionó, medido: quitar las frases típicas de IA (siguió en 100%), cambiar
+de modelo de chat, reescribir palabra por palabra y reorganizar el ensayo a mano. Todo el
+detalle en [`references/evidencia.md`](references/evidencia.md).
 
 ---
 
 ## Cómo funciona
 
 ```
- tu texto ──► el cubo, oración por oración ──────────────────────────► texto nuevo
-                │
-                ├─ 1. un modelo de lenguaje propone 8 versiones de la oración
-                ├─ 2. se descartan las que pierden un concepto, una negación
-                │     o meten una frase típica de IA
-                ├─ 3. un detector local (en tu computadora) mide cada versión
-                │     y se queda la que menos parece IA
-                └─ 4. un revisor veta las que cambian el sentido o inventan
+ tu texto ──► hip.py, párrafo por párrafo ──► ensuciar.py ──► texto final
+               │                                 │
+               ├─ un modelo base local            ├─ se come algunas comas
+               │  (Qwen3-4B + adaptador HIP)      ├─ pega algunas oraciones con coma
+               │  reescribe cada párrafo          └─ nunca toca la ortografía
+               └─ si un párrafo pierde un concepto,
+                  se reintenta; si no hay forma,
+                  queda el original
 ```
 
-Como un cubo Rubik: se gira una cara, se mira si el cubo quedó mejor y solo entonces se
-conserva el giro.
-
-- **El detector local** (`scripts/sustituto.py`) combina dos métodos publicados,
-  [Binoculars](https://github.com/ahans30/Binoculars) y
-  [Fast-DetectGPT](https://github.com/baoguangsheng/fast-detect-gpt), sobre un modelo Qwen2.5
-  pequeño. Contra Grammarly ordenó los textos del benchmark con una correlación de 0.87.
-  Gracias a él puedes probar miles de variantes sin gastar escaneos del detector real.
-- **El generador** es cualquier API compatible con OpenAI: DeepSeek, OpenRouter, un
-  modelo local con Ollama… Puedes poner varios de distintas familias.
-- **La idea** viene de *Adversarial Paraphrasing* ([NeurIPS 2025](https://github.com/chengez/Adversarial-Paraphrasing)):
-  parafrasear guiándose por un detector. Aquí el detector corre en tu máquina y cada
-  giro pasa filtros de contenido antes de competir.
+- **HIP** (*Humanization by Iterative Paraphrasing*) es un adaptador publicado por
+  [Xu et al.](https://github.com/YixuanEvenXu/humanization-by-iterative-paraphrasing)
+  (código MIT, adaptador Apache-2.0) que convierte a Qwen3-4B-Base en un parafraseador.
+  Se entrenó en inglés; `hip.py` le da las dos primeras palabras de cada párrafo para que
+  siga en español. Una sola pasada: con más, el texto se aleja del sentido.
+- **`ensuciar.py`** no usa ningún modelo: es un script determinista. Misma semilla, mismo
+  resultado.
 
 ---
 
@@ -78,27 +71,94 @@ conserva el giro.
 
 ### 0. Lo que necesitas
 
-- Python 3.9 o más reciente.
-- ~3 GB de disco (las bibliotecas y el modelo local).
-- Acceso a un modelo de lenguaje con API compatible con OpenAI (ver paso 2).
+- Python 3.9 o más reciente, git y [llama.cpp](https://github.com/ggml-org/llama.cpp)
+  (en Mac: `brew install llama.cpp`).
+- ~9 GB de disco: ~3 GB de bibliotecas y ~5.5 GB del modelo.
+- Una computadora con 16 GB de RAM. Corre en CPU; no hace falta GPU.
 
-### 1. Instalar
+### 1. Instalar (una sola vez)
 
 ```bash
 git clone https://github.com/ervin-mo/humanizar-es.git
 cd humanizar-es
 python3 -m venv .venv
 .venv/bin/pip install -r scripts/requirements.txt
+./scripts/instalar_hip.sh        # descarga el modelo a ~/.cache/humanizar-es/hip
 ```
 
-La primera corrida descarga el modelo local (Qwen2.5-0.5B, ~2 GB) a `~/.cache/huggingface`.
+### 2. Anotar lo que no se puede perder
 
-### 2. Configurar el generador
+Un archivo de texto con los conceptos, uno por línea; variantes separadas por `|`; con `*`
+al final, cuenta cualquier palabra que empiece así:
+
+```text
+# conceptos.txt
+Aristóteles | Estagirita
+principio de no contradicción
+derrumbe*
+1781
+```
+
+Para arrancar puedes pedir una lista automática y completarla:
+`python3 scripts/verificar_fidelidad.py mi-texto.txt --listar`
+
+### 3. Reescribir con el modelo local
+
+```bash
+.venv/bin/python scripts/hip.py mi-texto.txt -o reescrito.txt --conceptos conceptos.txt
+```
+
+Unos 30 segundos por párrafo en una Mac M4. Guarda el avance tras cada párrafo y avisa
+cuáles dejó como el original.
+
+### 4. Ensuciar la redacción
+
+```bash
+python3 scripts/ensuciar.py reescrito.txt -o final.txt --conceptos conceptos.txt
+```
+
+Por defecto usa el nivel `extra`, el medido (8% en Grammarly), y **no toca la
+ortografía**. Hay `ligero`, `medio` y `fuerte` si prefieres menos. `--semilla N` da otra
+variante. `--ortografia` además quita acentos y mete erratas de dedo: baja más en algunos
+detectores, pero son errores que se notan.
+
+### 5. Verificar y releer (no te lo saltes)
+
+```bash
+python3 scripts/verificar_fidelidad.py mi-texto.txt final.txt --conceptos conceptos.txt
+```
+
+Y **lee el resultado contra el original.** El modelo local a veces cambia un detalle: en la
+prueba puso «lavan los platos» donde decía «limpian», y «agencias extranjeras» donde decía
+«foráneas». Corrige esos detalles a mano; no le pidas a otro modelo de chat que lo arregle,
+porque le devuelve la huella al texto.
+
+### 6. Medir en tu detector, con un control
+
+Pega en el detector que te importa el resultado **y un texto que tú escribiste sin IA**,
+del mismo tipo. Si tu texto humano también sale como IA, ese detector no está midiendo
+y su número sobre el otro no significa nada.
+
+---
+
+## Alternativa: el cubo (con API)
+
+Si no puedes correr el modelo local, `scripts/cubo.py` reescribe oración por oración con
+cualquier API compatible con OpenAI y se queda con la variante que un detector local
+(Binoculars + Fast-DetectGPT sobre Qwen2.5-0.5B) ve menos como IA. Un revisor veta las que
+cambian el sentido. Es la idea de *Adversarial Paraphrasing*
+([NeurIPS 2025](https://github.com/chengez/Adversarial-Paraphrasing)).
+
+Con el ensayo completo sacó 67% en Grammarly solo y **4% seguido de `ensuciar.py`** (esa
+medición fue con la variante con errores de ortografía). Pero tardó 46 minutos, contra 4 de
+`hip.py`.
 
 ```bash
 export HUMANIZAR_API_KEY=tu-clave
 export HUMANIZAR_API_URL=https://api.deepseek.com/chat/completions
 export HUMANIZAR_MODEL=deepseek-flash
+.venv/bin/python scripts/cubo.py mi-texto.txt -o cubo.txt --conceptos conceptos.txt --registro academico
+python3 scripts/ensuciar.py cubo.txt -o final.txt --conceptos conceptos.txt
 ```
 
 Si usas el cubo a través de un agente como Codex, guarda la clave en un archivo privado en
@@ -111,13 +171,8 @@ printf '%s' 'tu-clave' > ~/.config/humanizar-es/api_key && chmod 600 ~/.config/h
 ```
 
 Los nombres de los modelos cambian con el tiempo (DeepSeek retiró `deepseek-chat` en julio
-de 2026). Para ver los vigentes de tu proveedor, sin gastar saldo:
-
-```bash
-curl -s https://api.deepseek.com/models -H "Authorization: Bearer $HUMANIZAR_API_KEY"
-```
-
-Otros proveedores, mismo formato:
+de 2026). Para ver los vigentes, sin gastar saldo:
+`curl -s https://api.deepseek.com/models -H "Authorization: Bearer $HUMANIZAR_API_KEY"`
 
 | Proveedor | `HUMANIZAR_API_URL` | Nota |
 |---|---|---|
@@ -126,92 +181,23 @@ Otros proveedores, mismo formato:
 | Ollama (local) | `http://localhost:11434/v1/chat/completions` | sin costo ni red; clave cualquiera; **no probado aquí** |
 | OpenCode Go | `https://opencode.ai/zen/go/v1/chat/completions` | exige `HUMANIZAR_API_HEADERS="x-opencode-session: {uuid}"` (el `{uuid}` se reemplaza solo) |
 
-Opcionales:
-
-```bash
-export HUMANIZAR_MODEL="deepseek-flash,otro-modelo"   # varias familias, se reparten las variantes
-export HUMANIZAR_REVISOR=deepseek-flash              # quién veta los cambios de sentido
-```
-
-### 3. Anotar lo que no se puede perder
-
-Un archivo de texto con los conceptos, uno por línea; variantes separadas por `|`:
-
-```text
-# conceptos.txt
-Aristóteles | Estagirita
-principio de no contradicción
-Crítica de la razón pura
-1781
-```
-
-Para arrancar puedes pedir una lista automática y completarla:
-`python3 scripts/verificar_fidelidad.py mi-texto.txt --listar`
-
-### 4. Pasar el texto por el cubo
-
-```bash
-.venv/bin/python scripts/cubo.py mi-texto.txt -o mi-texto-cubo.txt \
-    --conceptos conceptos.txt --registro academico
-```
-
-`--registro` puede ser `academico`, `tecnico`, `marketing` o `email`. El cubo trabaja
-párrafo por párrafo, 3 rondas cada uno, y guarda el avance al terminar cada párrafo.
-
-### 5. Verificar y releer (no te lo saltes)
-
-```bash
-python3 scripts/verificar_fidelidad.py mi-texto.txt mi-texto-cubo.txt --conceptos conceptos.txt
-python3 scripts/estilo.py mi-texto.txt mi-texto-cubo.txt
-```
-
-Y **lee el resultado oración por oración contra el original.** El detector local premia el
-orden invertido y las palabras poco comunes: el texto puede quedar acartonado. En el
-benchmark, antes de existir el revisor, el cubo llegó a cambiar el sentido de algunas
-oraciones y a inventar un ejemplo. El revisor atrapó esos errores en una prueba (7 de 7),
-pero la última palabra es tuya.
-
-### 6. Medir en tu detector, con un control
-
-Pega en el detector que te importa el resultado **y un texto que tú escribiste sin IA**,
-del mismo tipo. Si tu texto humano también sale como IA, ese detector no está midiendo
-y su número sobre el otro no significa nada.
-
-### Opcional: calibrar el detector local contra el tuyo
-
-Si mides varios textos en tu detector, anótalos así y comprueba que el detector local los
-ordena igual (1.0 es perfecto):
-
-```bash
-printf 'original.txt\t100\nversion-a.txt\t75\nversion-b.txt\t40\n' > etiquetas.tsv
-.venv/bin/python scripts/calibrar.py etiquetas.tsv
-```
-
-### Opcional: la ruleta de palabras
-
-`scripts/ruleta.py` cambia solo palabras sueltas por sinónimos, guiada por el mismo
-detector (la idea de [Shi et al., TACL 2023](https://arxiv.org/abs/2305.19713)). Es más
-conservadora con el sentido y mucho más barata (≈3 llamadas por texto). En el benchmark
-convenció a CleverHumanizer (76% humano) pero **no a Grammarly** (siguió en 100%), y
-después del cubo no aportó. Úsala si tu detector se parece al primero.
+`HUMANIZAR_REVISOR` elige quién veta los cambios de sentido. `scripts/calibrar.py`
+comprueba qué tan bien predice el detector local a tu detector, y `scripts/ruleta.py`
+cambia solo palabras sueltas (no movió a Grammarly).
 
 ---
 
-## Costos y tiempos (medidos)
+## Costos y tiempos (medidos, ensayo de 1,150 palabras)
 
-| | Cubo, párrafo de 120 palabras | Cubo, ensayo de 725 palabras |
+| | `hip.py` + `ensuciar.py` | El cubo |
 |---|---|---|
-| Llamadas al generador | ~12 | ~75 |
-| Tokens del generador | ~90 mil | ~500 mil |
-| Tiempo | ~5 min | ~20–35 min |
-| CPU | ligera | ligera |
+| Tiempo | ~4–7 min | ~46 min |
+| Dinero | $0 | ~790 mil tokens de API |
+| Red | solo para instalar | todo el tiempo |
+| CPU | 4 hilos, prioridad baja | ligera |
 
-El tiempo es casi todo espera al generador. Con un modelo que «razona» antes de contestar,
-cada llamada gasta miles de tokens.
-
-**Corre en CPU por defecto.** En Mac, `HUMANIZAR_DISPOSITIVO=mps` usa la GPU y es mucho
-más rápido, pero traba la pantalla mientras corre: úsalo solo si no estás usando la
-computadora.
+**Todo corre en CPU.** En Mac, `HUMANIZAR_DISPOSITIVO=mps` hace que el detector local del
+cubo use la GPU, pero traba la pantalla mientras corre.
 
 ---
 
@@ -254,8 +240,8 @@ error más peligroso: «principio de *no* contradicción» → «principio de co
 
 `SKILL.md` sigue el formato abierto de *Agent Skills* (un `SKILL.md` con `name` y
 `description`), así que funciona en cualquier agente que lo lea. Le pides «humaniza este
-texto» y el agente arma la lista de conceptos, corre el cubo, verifica el contenido y
-relee el resultado contigo.
+texto» y el agente arma la lista de conceptos, corre `hip.py` y `ensuciar.py`, verifica
+el contenido y relee el resultado contigo.
 
 | Agente | Dónde busca skills | ¿Lo cubre `./install.sh`? |
 |---|---|---|
@@ -274,13 +260,13 @@ relee el resultado contigo.
 ./install.sh --desinstalar      # quitarla de los mismos destinos
 ```
 
-Para usar el cubo desde la skill, instálala con **`--symlink`**: así la skill usa el
-`.venv` que creaste en el repo (paso 1 de la receta). Con una copia, el agente te
-propondrá crear otro `.venv` dentro de la carpeta de la skill.
+Instálala con **`--symlink`**: así la skill usa el `.venv` que creaste en el repo (paso 1
+de la receta). Con una copia, el agente te propondrá crear otro `.venv` dentro de la
+carpeta de la skill.
 
 La guía de reescritura manual (12 palancas, por registro) está en
 [`references/tecnicas.md`](references/tecnicas.md). Sirve para entender qué delata a un
-texto, pero por sí sola llegó a 75% en Grammarly: para pasar el detector, usa el cubo.
+texto, pero por sí sola llegó a 75% en Grammarly: para pasar el detector, usa la receta.
 
 ---
 
@@ -288,7 +274,10 @@ texto, pero por sí sola llegó a 75% en Grammarly: para pasar el detector, usa 
 
 | Script | Requiere | Para qué |
 |---|---|---|
-| `scripts/cubo.py` | `.venv` + una API de modelo | **la reescritura guiada por detector** |
+| `scripts/hip.py` | `.venv` + llama.cpp + `instalar_hip.sh` | **la reescritura con el modelo base local** |
+| `scripts/ensuciar.py` | Python | **las imperfecciones de redacción** |
+| `scripts/instalar_hip.sh` | llama.cpp, git | descarga y prepara el modelo local |
+| `scripts/cubo.py` | `.venv` + una API de modelo | la reescritura guiada por detector (alternativa) |
 | `scripts/ruleta.py` | `.venv` + una API de modelo | sinónimos guiados por detector (opcional) |
 | `scripts/sustituto.py` | `.venv` | el detector local; también puntúa textos sueltos |
 | `scripts/calibrar.py` | `.venv` | qué tan bien predice el detector local a TU detector |
@@ -306,17 +295,21 @@ score, límites de uso): [`references/detectores.md`](references/detectores.md).
 
 ## Límites
 
-1. **Un párrafo pasó los dos detectores; el ensayo completo todavía no se ha medido con
-   el modo párrafo por párrafo.** Girado de una vez, se quedó en 39% en Grammarly y ~80%
-   IA en CleverHumanizer.
-2. **Un solo texto de prueba**, académico. No sabemos cuánto se generaliza a marketing,
-   correos o textos técnicos.
-3. **Los detectores cambian.** Lo que hoy pasa puede no pasar mañana, y un detector puede
+1. **Un ensayo, una medición por versión.** La receta se midió con un ensayo de
+   divulgación de 1,150 palabras; cada número es un escaneo a mano. No sabemos cuánto se
+   generaliza a marketing, correos o textos técnicos.
+2. **El 8% es de Grammarly.** La receta exacta (redacción `extra`, sin errores de
+   ortografía) no se midió en CleverHumanizer; la variante con errores sacó 95% humano.
+3. **El modelo local se entrenó en inglés.** Funciona en español con un truco (le damos
+   las primeras palabras), pero a veces cambia un detalle o deja un párrafo sin tocar.
+4. **Los detectores cambian.** Lo que hoy pasa puede no pasar mañana, y un detector puede
    cambiar de opinión sobre el mismo texto el mismo día (le pasó a GPTZero).
-4. **Los detectores marcan texto humano.** Un artículo de Wikipedia de 2014 sacó 46.5% en
+5. **Los detectores marcan texto humano.** Un artículo de Wikipedia de 2014 sacó 46.5% en
    ZeroGPT.
-5. **El texto puede quedar acartonado.** El detector local premia lo poco común. Relee.
-6. **Analizar varios documentos del mismo autor** revela patrones que un documento suelto
+6. **La redacción queda menos pulida.** Es justo lo que la hace pasar: comas de menos y
+   oraciones largas pegadas con coma. Si tu texto exige redacción impecable, este no es
+   tu método.
+7. **Analizar varios documentos del mismo autor** revela patrones que un documento suelto
    no muestra; humanizar uno no protege de eso.
 
 ## Uso responsable
@@ -333,7 +326,7 @@ reescritura lo resuelve.
 
 ```
 humanizar-es/
-├── scripts/              el cubo, la ruleta, el detector local y los medidores
+├── scripts/              hip.py, ensuciar.py, el cubo, el detector local y los medidores
 ├── ejemplos/             el ensayo de prueba, sus versiones medidas y 2 controles humanos
 │   └── parrafo/          el párrafo que pasó los dos detectores
 ├── references/
@@ -348,9 +341,9 @@ humanizar-es/
 
 ## Contribuir
 
-Lo que más falta es **evidencia**: el modo párrafo por párrafo medido en ensayos completos,
-y más textos de otros registros (marketing, técnico, correos) con un control humano cada
-uno. Si mides algo, abre un PR con los textos y los números en `references/evidencia.md`.
+Lo que más falta es **evidencia**: la receta medida en más textos y otros registros
+(marketing, técnico, correos), con un control humano cada uno, y en más detectores. Y un
+adaptador HIP entrenado en español. Si mides algo, abre un PR con los textos y los números en `references/evidencia.md`.
 
 ```bash
 python3 -m unittest discover -s tests -v    # antes de abrir un PR
@@ -358,7 +351,9 @@ python3 -m unittest discover -s tests -v    # antes de abrir un PR
 
 ## Licencia
 
-Código y documentación: [MIT](LICENSE). El control de Wikipedia
+Código y documentación: [MIT](LICENSE). `hip.py` usa Qwen3-4B-Base (Apache-2.0) y el
+adaptador HIP de Xu et al. 2026 (Apache-2.0; su código, MIT), que se descargan aparte con
+`instalar_hip.sh`. El control de Wikipedia
 (`ejemplos/controles/control-wikipedia-metafisica-2014.txt`) es de sus autores bajo
 CC BY-SA 3.0; detalle en [`ejemplos/controles/LEEME.md`](ejemplos/controles/LEEME.md).
 
@@ -367,12 +362,13 @@ CC BY-SA 3.0; detalle en [`ejemplos/controles/LEEME.md`](ejemplos/controles/LEEM
 ## English summary
 
 Tools to make AI-written Spanish text stop being flagged as AI **without changing what it
-says**. The core is `scripts/cubo.py`: for every sentence, a language model proposes
-variants, filters drop the ones that lose a key concept or a negation, a local detector
-(Binoculars + Fast-DetectGPT on a small Qwen2.5 model) keeps the one that looks least
-machine-written, and a reviewer model vetoes changes of meaning. On a paragraph from a
-test essay it went from 100% AI to 0% on Grammarly and 99% human on CleverHumanizer, with
-all content preserved. Removing typical "AI phrases" alone did not work (a polished
-rewrite still scored 100%). The evidence is small (one essay, one paragraph measured by
-hand), every number is in `references/evidencia.md`, and the tool is not meant for passing
-off graded work.
+says**, running locally at no cost. The recipe: `scripts/hip.py` rewrites each paragraph
+with a *base* model (Qwen3-4B-Base plus the HIP adapter from Xu et al. 2026, "Base Models
+Look Human To AI Detectors"), seeded with the paragraph's first words so it stays in
+Spanish; then `scripts/ensuciar.py` deterministically roughens the prose (drops some
+commas, joins some sentences with commas) without touching spelling. On a 1,150-word
+essay, Grammarly went from 77% AI (base-model rewrite alone) to 8%, in about 4 minutes on
+CPU, with all 38 key concepts preserved. Swapping chat models, removing typical "AI
+phrases", word-level synonym swaps and manual restructuring did not work. The evidence is
+small (one essay, measured by hand); every number is in `references/evidencia.md`, and the
+tool is not meant for passing off graded work.

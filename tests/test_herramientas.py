@@ -233,6 +233,26 @@ class Cubo(unittest.TestCase):
             if viejo is not None:
                 os.environ["HUMANIZAR_API_KEY"] = viejo
 
+    def test_revisor_vacio_parte_el_lote(self):
+        """Si el revisor contesta vacio con el lote entero, se reintenta por mitades y
+        solo se rechaza lo que de verdad rechaza (antes se vetaba el lote completo)."""
+        gen = object.__new__(self.cubo.Generador)
+        gen.revisor, gen.revisor_fallos = "falso", 0
+
+        def llamar(modelo, prompt, temperatura):
+            if prompt.count("Par ") > 1:
+                return ""
+            return '{"rechazar": [0]}' if "MALA" in prompt else '{"rechazar": []}'
+        gen._llamar = llamar
+        pares = [("a b", "c d"), ("e f", "MALA g"), ("h i", "j k"), ("l m", "n o")]
+        self.assertEqual(gen.revisar(pares), {1})
+        self.assertEqual(gen.revisor_fallos, 0)
+
+    def test_rechaza_asterisco_copiado(self):
+        o = "Una lluvia fuerte puede provocar un derrumbe en la carretera."
+        c = "Un aguacero puede causar un derrumbe* en la carretera."
+        self.assertEqual(self.cubo.motivo_rechazo(o, c, []), "simbolo")
+
     def test_correlacion_de_rangos(self):
         import calibrar
         self.assertAlmostEqual(calibrar.spearman([1, 2, 3], [10, 20, 30]), 1.0)
@@ -324,6 +344,64 @@ class Instalador(unittest.TestCase):
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
             self.assertTrue(os.path.isfile(os.path.join(destino, "SKILL.md")))
             self.assertFalse(os.path.exists(os.path.join(destino, "humanizar-es")))
+
+
+class Ensuciar(unittest.TestCase):
+    """El paso que mete imperfecciones de redaccion, sin modelos."""
+
+    @classmethod
+    def setUpClass(cls):
+        import ensuciar
+        cls.e = ensuciar
+        cls.conceptos = vf.cargar_conceptos(CONCEPTOS)
+        cls.texto = open(os.path.join(EJ, "00-original.txt"), encoding="utf-8").read()
+
+    def test_reproducible(self):
+        a = self.e.ensuciar(self.texto, "extra", self.conceptos, semilla=3)
+        b = self.e.ensuciar(self.texto, "extra", self.conceptos, semilla=3)
+        self.assertEqual(a, b)
+        self.assertNotEqual(a, self.e.ensuciar(self.texto, "extra", self.conceptos, semilla=4))
+
+    def test_por_defecto_no_toca_la_ortografia(self):
+        sucio = self.e.ensuciar(self.texto, "extra", self.conceptos)
+        palabras = lambda t: [w.lower() for w in re.findall(r"\w+", t)]
+        # mismas palabras, mismos acentos: solo cambian comas, puntos y espacios
+        self.assertEqual(palabras(sucio), palabras(self.texto))
+        self.assertNotEqual(sucio, self.texto)
+
+    def test_ortografia_opcional_sin_tocar_conceptos(self):
+        sucio = self.e.ensuciar(self.texto, "extra", self.conceptos, ortografia=True)
+        self.assertNotEqual(re.findall(r"\w+", sucio.lower()), re.findall(r"\w+", self.texto.lower()))
+        t, s = vf.norm(self.texto), vf.norm(sucio)
+        for nombre, variantes in self.conceptos:
+            if any(vf.patron(v).search(t) for v in variantes):
+                self.assertTrue(any(vf.patron(v).search(s) for v in variantes), nombre)
+
+    def test_nivel_mas_alto_toca_mas(self):
+        import difflib
+        parecido = lambda n: difflib.SequenceMatcher(None, self.texto, self.e.ensuciar(self.texto, n)).ratio()
+        self.assertGreater(parecido("ligero"), parecido("extra"))
+
+
+class Hip(unittest.TestCase):
+    """Las piezas de hip.py que no necesitan el modelo."""
+
+    def test_prompt_con_arranque_en_espanol(self):
+        import hip
+        prompt, arranque = hip.construir_prompt("El turismo en la sierra crece.")
+        self.assertEqual(arranque, "El turismo")
+        self.assertTrue(prompt.startswith("<source_text>\n"))
+        self.assertTrue(prompt.endswith("<target_text>\nEl turismo"))
+
+    def test_limpia_la_salida(self):
+        import hip
+        self.assertEqual(hip.limpiar_salida("El turismo", " de la sierra  crece.\n</target_text>basura"),
+                         "El turismo de la sierra crece.")
+
+    def test_reconoce_titulos(self):
+        import hip
+        self.assertTrue(hip.es_titulo("Turismo y tecnología"))
+        self.assertFalse(hip.es_titulo("El turismo crece."))
 
 
 if __name__ == "__main__":
