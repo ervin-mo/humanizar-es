@@ -4,6 +4,7 @@
 """
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -127,6 +128,30 @@ class Hip(unittest.TestCase):
         self.assertTrue(hip.es_titulo("Turismo y tecnología"))
         self.assertFalse(hip.es_titulo("El turismo crece."))
 
+    def test_corre_de_punta_a_punta_con_un_llama_falso(self):
+        """El camino completo de hip.py sin el modelo: prompt en archivo UTF-8, salida leida
+        como UTF-8 (en Windows, sin esto, los acentos llegaban rotos) y archivo escrito."""
+        texto = "Año tras año, el pingüino «Nuño» camina—sin prisa—hacia el sur.\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            for f in (hip.BASE, hip.ADAPTADOR):
+                open(os.path.join(tmp, f), "w").close()
+            falso = os.path.join(tmp, "llama_falso.py")
+            with open(falso, "w", encoding="utf-8") as fh:
+                fh.write(
+                    "import sys\n"
+                    "args = sys.argv[1:]\n"
+                    "prompt = open(args[args.index('-f') + 1], encoding='utf-8').read()\n"
+                    "fuente = prompt.split('<source_text>\\n')[1].split('\\n</source_text>')[0]\n"
+                    "resto = ' '.join(fuente.split()[2:])\n"
+                    "sys.stdout.buffer.write((' ' + resto + '\\n</target_text>').encode('utf-8'))\n")
+            entrada, salida = os.path.join(tmp, "in.txt"), os.path.join(tmp, "out.txt")
+            with open(entrada, "w", encoding="utf-8") as fh:
+                fh.write(texto)
+            env = dict(os.environ, HUMANIZAR_HIP_DIR=tmp, HUMANIZAR_LLAMA=falso)
+            r = correr(sys.executable, os.path.join(SCRIPTS, "hip.py"), entrada, "-o", salida, env=env)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertEqual(leer(salida), texto)
+
     def test_sin_modelo_avisa_y_sale_con_dos(self):
         with tempfile.TemporaryDirectory() as tmp:
             env = dict(os.environ, HUMANIZAR_HIP_DIR=tmp)
@@ -136,30 +161,41 @@ class Hip(unittest.TestCase):
             self.assertIn("ERROR", r.stderr)
 
 
+INSTALAR = (sys.executable, os.path.join(RAIZ, "install.py"))
+
+
 class Instalador(unittest.TestCase):
     def test_instala_y_desinstala(self):
         with tempfile.TemporaryDirectory() as tmp:
-            r = correr("bash", os.path.join(RAIZ, "install.sh"), "--destino", tmp)
+            r = correr(*INSTALAR, "--destino", tmp)
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
             destino = os.path.join(tmp, "humanizar-es")
-            for f in ("SKILL.md", "scripts/hip.py", "scripts/unir.py", "scripts/instalar_hip.sh"):
+            for f in ("SKILL.md", "scripts/hip.py", "scripts/unir.py", "scripts/instalar_hip.py"):
                 self.assertTrue(os.path.isfile(os.path.join(destino, f)), f)
             self.assertFalse(os.path.exists(os.path.join(destino, "tests")))
-            self.assertTrue(os.access(os.path.join(destino, "scripts", "instalar_hip.sh"), os.X_OK))
-            correr("bash", os.path.join(RAIZ, "install.sh"), "--destino", tmp, "--desinstalar")
+            if os.name == "posix":
+                self.assertTrue(os.access(os.path.join(destino, "scripts", "instalar_hip.sh"), os.X_OK))
+            correr(*INSTALAR, "--destino", tmp, "--desinstalar")
             self.assertFalse(os.path.exists(destino))
 
     def test_por_defecto_instala_para_todos_los_agentes(self):
         with tempfile.TemporaryDirectory() as tmp:
             env = dict(os.environ, HOME=tmp)
-            r = correr("bash", os.path.join(RAIZ, "install.sh"), env=env)
+            r = correr(*INSTALAR, env=env)
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
             for carpeta in (".claude/skills", ".agents/skills"):
                 self.assertTrue(os.path.isfile(os.path.join(tmp, carpeta, "humanizar-es", "SKILL.md")))
-            correr("bash", os.path.join(RAIZ, "install.sh"), "--agente", "codex", env=env)
+            correr(*INSTALAR, "--agente", "codex", env=env)
             self.assertTrue(os.path.isfile(os.path.join(tmp, ".codex/skills/humanizar-es/SKILL.md")))
-            correr("bash", os.path.join(RAIZ, "install.sh"), "--desinstalar", env=env)
+            correr(*INSTALAR, "--desinstalar", env=env)
             self.assertFalse(os.path.exists(os.path.join(tmp, ".claude/skills/humanizar-es")))
+
+    @unittest.skipUnless(shutil.which("bash") and os.name == "posix", "atajo de macOS y Linux")
+    def test_el_atajo_de_bash_llama_al_instalador(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            r = correr("bash", os.path.join(RAIZ, "install.sh"), "--destino", tmp)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertTrue(os.path.isfile(os.path.join(tmp, "humanizar-es", "SKILL.md")))
 
     def test_frontmatter_cumple_el_formato_agent_skills(self):
         cabecera = leer(os.path.join(RAIZ, "SKILL.md")).split("---")[1]
@@ -169,8 +205,8 @@ class Instalador(unittest.TestCase):
         self.assertLessEqual(len(descripcion), 1024)
 
     def test_instalador_del_modelo_tiene_hashes(self):
-        s = leer(os.path.join(SCRIPTS, "instalar_hip.sh"))
-        self.assertEqual(len(re.findall(r'_SHA="[0-9a-f]{64}"', s)), 2)
+        s = leer(os.path.join(SCRIPTS, "instalar_hip.py"))
+        self.assertEqual(len(re.findall(r'_SHA = "[0-9a-f]{64}"', s)), 2)
 
 
 if __name__ == "__main__":

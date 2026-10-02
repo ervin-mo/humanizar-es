@@ -2,7 +2,7 @@
 name: humanizar-es
 description: Reescribe texto en español generado por IA para que el detector de Grammarly deje de marcarlo, sin cambiar lo que dice y sin meter errores de ortografía ni de puntuación. Corre en local, sin API ni costo, con un modelo base (hip.py) y luego une las oraciones de cada párrafo (unir.py); llevó tres ensayos completos a 0%, 10% y 0% en Grammarly. Úsalo cuando pidan "humanizar", "que no lo detecte el detector de IA", "pasar Grammarly", "quitar las marcas de IA" o "que no suene a ChatGPT".
 metadata:
-  version: "2.0.1"
+  version: "2.1.0"
   idioma: es
   evidencia: references/evidencia.md
 ---
@@ -25,7 +25,8 @@ y verificar.
 3. **Hacen falta los dos pasos.** Medido: solo `hip.py`, 84%; solo unir, 57%; los dos, 8%.
 
 En los comandos, `<skill>` es la carpeta donde está este `SKILL.md`. Los textos van en la
-carpeta de trabajo del usuario, no dentro de la skill.
+carpeta de trabajo del usuario, no dentro de la skill. **En Windows** escribe `python` (o
+`py`) donde dice `python3`; todo lo demás es igual. No hace falta ninguna clave ni cuenta.
 
 ## Flujo de trabajo
 
@@ -41,13 +42,18 @@ dilo antes de seguir (ver *Uso responsable*).
 
 ### 3. Comprobar la instalación (una vez)
 
-1. **llama.cpp**: `command -v llama-completion || command -v llama-cli`. Si falta:
-   macOS y Linux `brew install llama.cpp`; Windows `winget install llama.cpp` (y usar Git
-   Bash o WSL para los `.sh`).
-2. **El modelo**: existen `Qwen3-4B-Base.Q8_0.gguf` y `hip-qwen3-4b-base.gguf` en
-   `${HUMANIZAR_HIP_DIR:-~/.cache/humanizar-es/hip}`. Si no, **pide permiso** (son ~4.6 GB)
-   y corre `<skill>/scripts/instalar_hip.sh`. Necesita red; si tu entorno la bloquea, pide
-   que lo autoricen o que el usuario lo corra en su terminal.
+Corre `python3 <skill>/scripts/instalar_hip.py`: si todo está, lo verifica y termina con
+«Listo»; si falta algo, lo dice.
+
+1. **llama.cpp**: si falta, macOS y Linux `brew install llama.cpp`; Windows
+   `winget install llama.cpp`. En Windows, `hip.py` también lo busca en la carpeta de winget,
+   así que no hace falta abrir otra terminal; si está en otro lado, la variable
+   `HUMANIZAR_LLAMA` lleva la ruta al `.exe`.
+2. **El modelo** (`Qwen3-4B-Base.Q8_0.gguf` y `hip-qwen3-4b-base.gguf` en
+   `~/.cache/humanizar-es/hip`, o en `HUMANIZAR_HIP_DIR`): si falta, **pide permiso** (son
+   ~4.6 GB) y deja que `instalar_hip.py` lo baje. Necesita red; si tu entorno la bloquea,
+   pide que lo autoricen o que el usuario lo corra en su terminal. Si se corta, se vuelve
+   a correr y sigue donde se quedó.
 
 Python 3.9+ basta: los scripts no necesitan paquetes.
 
@@ -67,8 +73,9 @@ Para arrancar: `python3 <skill>/scripts/verificar_fidelidad.py 00-original.txt -
 
 ### 5. Reescribir con el modelo local
 
-Avisa: unos 30 segundos por párrafo en CPU, sin costo. Si tu entorno corta comandos
-largos, lánzalo en segundo plano (`nohup ... &`) y revisa su salida.
+Avisa: unos 30 segundos por párrafo en una Mac M4, de 1 a 3 minutos en una PC más vieja;
+en CPU y sin costo. Si tu entorno corta comandos largos, lánzalo en segundo plano y revisa
+su salida: `hip.py` guarda el archivo después de cada párrafo e imprime su avance.
 
 ```bash
 python3 <skill>/scripts/hip.py 00-original.txt -o 01-hip.txt --conceptos conceptos.txt
@@ -146,7 +153,7 @@ proceder.
 
 ## Archivos
 
-- `scripts/instalar_hip.sh` — baja y verifica el modelo (una vez)
+- `scripts/instalar_hip.py` — baja y verifica el modelo (una vez)
 - `scripts/hip.py` — paso 5: reescribe con el modelo base local
 - `scripts/unir.py` — paso 7: une las oraciones de cada párrafo
 - `scripts/verificar_fidelidad.py` — conceptos y negaciones, original contra versión

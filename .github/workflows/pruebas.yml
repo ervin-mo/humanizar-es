@@ -6,9 +6,11 @@ on:
 
 jobs:
   pruebas:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
         python: ["3.9", "3.12"]
     steps:
       - uses: actions/checkout@v4
@@ -16,8 +18,10 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - name: Sintaxis de los scripts de shell
+        if: runner.os == 'Linux'
         run: for f in install.sh scripts/*.sh; do bash -n "$f"; done
       - name: shellcheck (solo errores)
+        if: runner.os == 'Linux'
         run: shellcheck -S error install.sh scripts/*.sh
       - name: Pruebas
         run: python -m unittest discover -s tests -v

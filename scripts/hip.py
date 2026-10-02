@@ -15,7 +15,7 @@ parrafo pierde un concepto de --conceptos o sale truncado, se reintenta; si no h
 forma, se deja el original y se avisa.
 
 Corre en CPU (-ngl 0) con prioridad baja. Unos 30 s por parrafo en una Mac M4.
-Instalar antes: ./scripts/instalar_hip.sh  (unos 4.6 GB en ~/.cache/humanizar-es/hip)
+Instalar antes: python3 scripts/instalar_hip.py  (unos 4.6 GB en ~/.cache/humanizar-es/hip)
 
 uso:
   python3 scripts/hip.py original.txt -o reescrito.txt --conceptos conceptos.txt
@@ -27,10 +27,15 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import verificar_fidelidad as vf  # noqa: E402
+
+if hasattr(sys.stdout, "reconfigure"):  # que una consola de Windows no truene con «» o ñ
+    sys.stdout.reconfigure(errors="replace")
+    sys.stderr.reconfigure(errors="replace")
 
 DIR_MODELO = os.environ.get("HUMANIZAR_HIP_DIR",
                             os.path.expanduser("~/.cache/humanizar-es/hip"))
@@ -51,25 +56,60 @@ def limpiar_salida(arranque, generado):
     return " ".join(texto.split())
 
 
+COMO_INSTALAR_LLAMA = ("En macOS o Linux: brew install llama.cpp. En Windows: winget install "
+                       "llama.cpp y abre una terminal nueva. Si ya esta instalado en otra carpeta, "
+                       "pon su ruta en la variable HUMANIZAR_LLAMA.")
+
+
 def binario():
-    for b in ("llama-completion", "llama-cli"):
-        if shutil.which(b):
-            return b
+    """llama-completion (o llama-cli, en versiones viejas). Busca en HUMANIZAR_LLAMA, en el
+    PATH y, en Windows, en la carpeta de winget, que no entra al PATH hasta abrir otra terminal."""
+    propio = os.environ.get("HUMANIZAR_LLAMA")
+    if propio:
+        return propio if os.path.isfile(propio) else None
+    rutas = [None]
+    if os.name == "nt":
+        local = os.environ.get("LOCALAPPDATA", "")
+        rutas.append(os.path.join(local, "Microsoft", "WinGet", "Links"))
+    for ruta in rutas:
+        for b in ("llama-completion", "llama-cli"):
+            encontrado = shutil.which(b, path=ruta)
+            if encontrado:
+                return encontrado
     return None
 
 
 def girar(parrafo, hilos=4, temperatura=1.0):
     prompt, arranque = construir_prompt(parrafo)
-    cmd = [binario(), "-m", os.path.join(DIR_MODELO, BASE),
+    # El prompt va en un archivo UTF-8 y no en la linea de comandos: en Windows los acentos
+    # y las comillas se maltratan al pasar como argumento.
+    with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".txt", delete=False) as fh:
+        fh.write(prompt)
+    try:
+        return limpiar_salida(arranque, _correr_llama(fh.name, parrafo, hilos, temperatura))
+    finally:
+        os.remove(fh.name)
+
+
+def _correr_llama(archivo_prompt, parrafo, hilos, temperatura):
+    llama = binario()
+    cmd = [llama, "-m", os.path.join(DIR_MODELO, BASE),
            "--lora", os.path.join(DIR_MODELO, ADAPTADOR),
            "-ngl", "0", "-dev", "none", "-t", str(hilos), "-c", "4096",
            "-n", str(int(len(parrafo.split()) * 3) + 100),
            "--temp", str(temperatura), "--top-p", "0.95",
-           "-no-cnv", "--no-display-prompt", "-r", "</target_text>", "-p", prompt]
-    if os.name == "posix":
+           "-no-cnv", "--no-display-prompt", "-r", "</target_text>", "-f", archivo_prompt]
+    if llama.endswith(".py"):  # un llama falso, para las pruebas
+        cmd = [sys.executable] + cmd
+    extra = {}
+    if os.name == "nt":  # prioridad baja, como nice en macOS y Linux
+        extra["creationflags"] = subprocess.BELOW_NORMAL_PRIORITY_CLASS
+    elif shutil.which("nice"):
         cmd = ["nice", "-n", "15"] + cmd
-    r = subprocess.run(cmd, capture_output=True, text=True)
-    return limpiar_salida(arranque, r.stdout)
+    # llama.cpp escribe UTF-8; sin encoding, Windows lo leeria como cp1252.
+    r = subprocess.run(cmd, capture_output=True, encoding="utf-8", errors="replace",
+                       stdin=subprocess.DEVNULL, **extra)
+    return r.stdout
 
 
 def conceptos_en(texto, conceptos):
@@ -91,11 +131,11 @@ def main():
     args = ap.parse_args()
 
     if not binario():
-        print("ERROR: falta llama.cpp (en Mac: brew install llama.cpp)", file=sys.stderr)
+        print("ERROR: falta llama.cpp. " + COMO_INSTALAR_LLAMA, file=sys.stderr)
         return 2
     for f in (BASE, ADAPTADOR):
         if not os.path.isfile(os.path.join(DIR_MODELO, f)):
-            print(f"ERROR: falta {f} en {DIR_MODELO}; corre ./scripts/instalar_hip.sh",
+            print(f"ERROR: falta {f} en {DIR_MODELO}; corre scripts/instalar_hip.py",
                   file=sys.stderr)
             return 2
 

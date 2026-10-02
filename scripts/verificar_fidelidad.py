@@ -35,6 +35,10 @@ import re
 import sys
 import unicodedata
 
+if hasattr(sys.stdout, "reconfigure"):  # que una consola de Windows no truene con «» o ñ
+    sys.stdout.reconfigure(errors="replace")
+    sys.stderr.reconfigure(errors="replace")
+
 NEGACIONES = r"no|ni|nunca|jamas|tampoco|sin|nadie|nada|ningun|ninguna|ninguno"
 
 # Palabras con mayuscula que no son nombres propios aunque no abran oracion.

@@ -1,5 +1,19 @@
 # Cambios
 
+## 2.1.0 — 1 de octubre de 2026
+
+Funciona en **Windows** igual que en macOS y Linux, sin Git Bash ni WSL.
+
+- `install.py` e `instalar_hip.py` reemplazan a los `.sh` (que quedan como atajos). La
+  descarga del modelo ya no necesita curl ni shasum, y si se corta sigue donde se quedó.
+- `hip.py` le pasa el prompt a llama.cpp en un archivo UTF-8 y lee su salida como UTF-8: en
+  Windows los acentos se habrían roto. Baja la prioridad del proceso también en Windows.
+- `hip.py` encuentra llama.cpp recién instalado con winget sin abrir otra terminal, y
+  acepta la ruta en `HUMANIZAR_LLAMA`.
+- Las pruebas corren en Ubuntu, macOS y Windows, con una prueba de punta a punta de
+  `hip.py` con un llama.cpp falso.
+- `.gitattributes`: los scripts conservan los saltos de línea de Unix al clonar en Windows.
+
 ## 2.0.1 — 1 de octubre de 2026
 
 - Evidencia: un tercer ensayo (690 palabras) pasó a **0%** en Grammarly en la primera

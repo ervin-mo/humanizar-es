@@ -22,6 +22,10 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import verificar_fidelidad as vf  # noqa: E402
 
+if hasattr(sys.stdout, "reconfigure"):  # que una consola de Windows no truene con «» o ñ
+    sys.stdout.reconfigure(errors="replace")
+    sys.stderr.reconfigure(errors="replace")
+
 # Palabras que pueden ir con mayuscula a media oracion («San Cristobal de Las Casas»)
 # pero que al empezar una oracion son comunes.
 COMUNES = set("""El La Los Las Lo Un Una Unos Unas De Del Al A En Y O Con Por Para Sin

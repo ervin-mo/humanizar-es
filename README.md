@@ -5,7 +5,7 @@
 
 Hace que un texto en español escrito con IA **deje de detectarse como IA en Grammarly sin
 cambiar lo que dice** y sin meter errores de ortografía ni de puntuación. Corre en tu
-computadora: sin API, sin costo y sin GPU.
+computadora, en macOS, Linux o Windows: sin API, sin claves, sin costo y sin GPU.
 
 > *English summary at the end.*
 
@@ -68,7 +68,7 @@ Los dos pasos hacen falta: ninguno solo baja de 57%.
 ```bash
 git clone https://github.com/ervin-mo/humanizar-es.git
 cd humanizar-es
-./install.sh
+python3 install.py        # en Windows: python install.py
 ```
 
 Abre una sesión nueva y pídele **«humaniza este texto»**. La skill le dice al agente qué
@@ -76,7 +76,7 @@ hacer: instalar lo que falte (te pide permiso antes de bajar el modelo), anotar 
 que no se puede perder, correr `hip.py`, revisar contigo cada párrafo, correr `unir.py` y
 verificar el resultado.
 
-| Agente | Dónde busca skills | ¿Lo cubre `./install.sh`? |
+| Agente | Dónde busca skills | ¿Lo cubre `install.py`? |
 |---|---|---|
 | Claude Code | `~/.claude/skills` | sí |
 | Codex | `~/.agents/skills`, `~/.codex/skills` | sí |
@@ -85,7 +85,8 @@ verificar el resultado.
 | DeepSeek Harness (`dsh`) | `~/.agents/skills` | sí |
 | Gemini CLI | `~/.gemini/skills` | con `--agente gemini` |
 
-`./install.sh --agente codex` instala para uno solo; `--desinstalar` la quita.
+`python3 install.py --agente codex` instala para uno solo; `--desinstalar` la quita. En
+macOS y Linux, `./install.sh` hace lo mismo.
 
 ---
 
@@ -93,18 +94,35 @@ verificar el resultado.
 
 ### 1. Instalar (una vez)
 
-Necesitas Python 3.9 o más reciente (sin paquetes extra), curl y
-[llama.cpp](https://github.com/ggml-org/llama.cpp):
+Necesitas Python 3.9 o más reciente (sin paquetes extra) y
+[llama.cpp](https://github.com/ggml-org/llama.cpp).
+
+**macOS y Linux:**
 
 ```bash
-brew install llama.cpp            # macOS y Linux; en Windows: winget install llama.cpp
+brew install llama.cpp
 git clone https://github.com/ervin-mo/humanizar-es.git
 cd humanizar-es
-./scripts/instalar_hip.sh         # baja el modelo: ~4.6 GB a ~/.cache/humanizar-es/hip
+python3 scripts/instalar_hip.py   # baja el modelo: ~4.6 GB a ~/.cache/humanizar-es/hip
 ```
 
-El instalador verifica cada archivo con su sha256. Corre en CPU; con 8 GB de RAM libres
-alcanza.
+**Windows** (PowerShell o la terminal de tu agente):
+
+```powershell
+winget install llama.cpp
+winget install Python.Python.3.12   # si no tienes Python
+git clone https://github.com/ervin-mo/humanizar-es.git
+cd humanizar-es
+python scripts\instalar_hip.py      # baja el modelo a C:\Users\<tú>\.cache\humanizar-es\hip
+```
+
+En Windows, en los comandos de abajo escribe `python` donde dice `python3`. Si `winget`
+acaba de instalar llama.cpp, `hip.py` lo encuentra aunque no hayas abierto otra terminal; si
+lo tienes en otra carpeta, pon la ruta del `.exe` en la variable `HUMANIZAR_LLAMA`.
+
+El instalador verifica cada archivo con su sha256 y, si la descarga se corta, sigue donde
+se quedó. Corre en CPU; con 8 GB de RAM libres alcanza. En una Mac M4 son unos 30 segundos
+por párrafo; en una PC con un procesador de hace unos años puede ser de 1 a 3 minutos.
 
 ### 2. Anotar lo que no se puede perder
 
@@ -201,9 +219,9 @@ declararse.** Ahí el problema no es técnico: es de honestidad académica.
 ```
 humanizar-es/
 ├── SKILL.md                 la skill para agentes
-├── install.sh               instala la skill
+├── install.py               instala la skill (install.sh: atajo para macOS y Linux)
 ├── scripts/
-│   ├── instalar_hip.sh      baja el modelo (una vez)
+│   ├── instalar_hip.py      baja el modelo (una vez; instalar_hip.sh: atajo)
 │   ├── hip.py               paso 1: reescribe con el modelo base local
 │   ├── unir.py              paso 3: une las oraciones de cada párrafo
 │   └── verificar_fidelidad.py   que no se pierda ningún concepto ni negación
@@ -236,11 +254,11 @@ Apache-2.0 y se descargan aparte; ver [`THIRD_PARTY.md`](THIRD_PARTY.md).
 
 Makes AI-written Spanish text stop being flagged as AI by Grammarly **without changing
 what it says** and without adding spelling or punctuation errors. Runs locally: no API,
-no cost, no GPU. Three steps: `scripts/hip.py` rewrites each paragraph with a *base* model
+no API keys, no cost, no GPU; macOS, Linux and Windows. Three steps: `scripts/hip.py` rewrites each paragraph with a *base* model
 (Qwen3-4B-Base plus the HIP adapter from Xu et al. 2026, "Base Models Look Human To AI
 Detectors"); you fix the few slips by hand; `scripts/unir.py` joins the sentences of each
 paragraph with "y" (and), breaking the even sentence rhythm Grammarly keys on. Three full
 essays went to 0%, 10% and 0% AI (two of them from 77% and 84%). Measured one change at a time: double
 spaces did nothing, dropping commas helped a little, joining sentences helped most, and
-joining alone on the original text was not enough (57%). Install with `./install.sh` and
+joining alone on the original text was not enough (57%). Install with `python3 install.py` (`python` on Windows) and
 ask your coding agent to "humaniza este texto". Not meant for passing off graded work.
