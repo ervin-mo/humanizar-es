@@ -136,10 +136,9 @@ Recuérdale medir en su detector **junto con un texto suyo escrito sin IA**.
 
 ## Límites (léelos antes de prometer nada)
 
-1. **Se midió en Grammarly, con tres ensayos (0%, 10% y 0%).** En otros detectores no
-   pasa: un ensayo que quedó en 0% en Grammarly sigue en 65% en GPTZero, y ZeroGPT no se
-   movió (`references/evidencia.md` §5). Si el usuario necesita otro detector, díselo antes
-   de empezar. No prometas un número.
+1. **Se midió en Grammarly, con tres ensayos (0%, 10% y 0%).** Está optimizado para
+   Grammarly; GPTZero y ZeroGPT todavía no lo pasan de forma confiable. Si el usuario
+   necesita otro detector, díselo antes de empezar. No prometas un número.
 2. **Los detectores marcan texto humano** y cambian sin avisar. Por eso el control humano.
 3. **El modelo se entrenó en inglés.** Funciona en español con un truco (le damos las dos
    primeras palabras de cada párrafo), pero comete los errores del paso 6.

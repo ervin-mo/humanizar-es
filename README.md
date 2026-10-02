@@ -7,6 +7,8 @@
 
 **Español** · [English](README.en.md)
 
+![humanizar-es: humaniza texto de IA en español, en tu computadora y gratis](assets/vista-previa.png)
+
 **humanizar-es** reescribe un texto en español generado con ChatGPT, Claude, Gemini o
 DeepSeek para que **el detector de IA de Grammarly deje de marcarlo**, sin cambiar lo que
 dice y sin meter errores de ortografía ni de puntuación. Corre en tu computadora con un
@@ -143,26 +145,18 @@ Un ejemplo completo, con lo que se corrigió a mano, está en [`ejemplos/`](ejem
 
 ---
 
-## ¿Y en otros detectores?
+## Detectores
 
-Los detectores no están de acuerdo entre sí, y aquí se midió con cuidado solo Grammarly.
-Lo que sabemos, con el mismo texto antes y después, y un texto humano de control
-(*Nuestra América*, José Martí, 1891):
+| Detector | Estado |
+|---|---|
+| **Grammarly** | ✅ Optimizado y probado: tres ensayos a 0%, 10% y 0% |
+| **GPTZero** · **ZeroGPT** | 🔧 Próxima mejora: en pruebas |
+| Otros | Sin medir |
 
-| Detector | Control humano | Ensayo A: antes → después | Ensayo B: antes → después |
-|---|---|---|---|
-| **Grammarly** | — | sin medir → **0%** | sin medir |
-| **GPTZero** | 0% IA | 98% → **65%** | 100% → 100% |
-| **ZeroGPT** | 0% IA | 0% → 0% | 98.5% → 97.5% |
-| **CleverHumanizer** | — | Dragon Ball unido: 5% | — |
-
-*Ensayo A: el de un modelo de IA para clasificar (690 palabras). Ensayo B: el de metafísica
-de [`ejemplos/`](ejemplos/). Un escaneo por versión, 2 de octubre de 2026.*
-
-Dicho sin rodeos: **la receta está hecha y probada para Grammarly**. GPTZero la detecta
-menos que el original pero todavía la marca, y ZeroGPT no se mueve. Si tu texto tiene que
-pasar otro detector, mídelo ahí antes de confiar. Contribuciones con mediciones en otros
-detectores son lo que más falta (ver [Contribuir](#contribuir)).
+Cada detector usa su propio modelo, así que una versión que pasa uno puede no pasar otro.
+Si tu texto tiene que pasar un detector en particular, mídelo ahí junto con un texto tuyo
+escrito sin IA ([`references/detectores.md`](references/detectores.md)). Las mediciones en
+más detectores son la contribución que más falta (ver [Contribuir](#contribuir)).
 
 ---
 
@@ -196,8 +190,8 @@ No. Corre en CPU, con prioridad baja para que tu computadora siga usable.
 
 ## Límites
 
-1. **Medido en Grammarly, con tres ensayos.** En otros detectores no está probado que
-   funcione (ver arriba).
+1. **Optimizado para Grammarly, con tres ensayos medidos.** GPTZero y ZeroGPT son la
+   siguiente mejora (ver [Detectores](#detectores)).
 2. **Párrafos en oraciones largas encadenadas.** Es parte de cómo pasa.
 3. **Releer no es opcional.** El modelo se entrenó en inglés y a veces cambia un detalle o
    invierte una idea; en un ensayo volteó el sentido de la conclusión.

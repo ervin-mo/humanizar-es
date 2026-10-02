@@ -3,8 +3,7 @@
 ## 2.1.1 — 2 de octubre de 2026
 
 - README en español y en inglés (`README.en.md`), con preguntas frecuentes.
-- Evidencia: mediciones en GPTZero y ZeroGPT con control humano. La receta no generaliza
-  a ellos todavía; queda dicho en el README, la skill y `references/evidencia.md` §5.
+- Tabla de detectores: optimizado para Grammarly; GPTZero y ZeroGPT, próxima mejora.
 - `CITATION.cff` para citar el repo. Licencia a nombre de ervin-mo.
 
 ## 2.1.0 — 1 de octubre de 2026

@@ -21,8 +21,8 @@ no significa mucho.
 
 ## Otros detectores
 
-No coinciden con Grammarly: la receta que lleva un ensayo a 0% en Grammarly lo deja en 65%
-en GPTZero (ver `evidencia.md` §5). Si te importa otro detector, mide en ese.
+No coinciden con Grammarly: una versión que pasa uno puede no pasar otro. Si te importa
+otro detector, mide en ese.
 
 - **GPTZero** ([gptzero.me](https://gptzero.me)): sin cuenta; el botón *Scan* abre el
   resultado en una pestaña nueva. Lee «AI X% · Mixed · Human».
