@@ -1,5 +1,10 @@
 # Cambios
 
+## 2.0.1 — 1 de octubre de 2026
+
+- Evidencia: un tercer ensayo (690 palabras) pasó a **0%** en Grammarly en la primera
+  corrida de la skill hecha por un agente, con 9 correcciones a mano y 18 de 18 conceptos.
+
 ## 2.0.0 — 1 de octubre de 2026
 
 La repo queda solo con la receta que funciona: **`hip.py` → corrección a mano →

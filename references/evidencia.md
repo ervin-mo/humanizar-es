@@ -2,7 +2,7 @@
 
 Todas las mediciones de la receta (`hip.py` → corrección a mano → `unir.py`), hechas a mano
 en el [detector de IA de Grammarly](https://www.grammarly.com/ai-detector) el 1 de octubre
-de 2026, un escaneo por versión, con el cuadro vacío antes de pegar. Los dos ensayos de
+de 2026, un escaneo por versión, con el cuadro vacío antes de pegar. Los ensayos de
 prueba no se publican (son de un usuario); se publican los números.
 
 ## 1. La receta completa
@@ -11,9 +11,15 @@ prueba no se publican (son de un usuario); se publican los números.
 |---|---|---|
 | Turismo e IA en Chiapas, 1,150 palabras, 9 párrafos | 77% | **0%** |
 | Dragon Ball y su generación, 910 palabras, 7 párrafos | 84% | **10%** |
+| Un modelo de IA de clasificación, 690 palabras, 5 párrafos | sin medir | **0%** |
 
 Las correcciones a mano fueron 21 en Chiapas y 16 en Dragon Ball. Se conservaron 37 de 38
 conceptos en Chiapas («itinerarios» quedó como «rutas») y 24 de 24 en Dragon Ball.
+
+El tercer ensayo fue la primera corrida de la skill v2.0.0 tal como está publicada, hecha
+por un agente siguiendo `SKILL.md` paso a paso: 9 correcciones a mano (una de ellas
+restituía una negación que `hip.py` había invertido), 18 de 18 conceptos y unos 4 minutos
+en CPU.
 
 ## 2. Qué castiga Grammarly: un cambio a la vez
 
@@ -85,7 +91,7 @@ errores visibles y unir oraciones lo consigue sin ellos.
 
 ## 6. Límites
 
-- Dos ensayos de divulgación. No sabemos cuánto se generaliza a correos, marketing o textos
+- Tres ensayos de divulgación. No sabemos cuánto se generaliza a correos, marketing o textos
   técnicos.
 - Un escaneo por versión. Diferencias de pocos puntos pueden ser ruido.
 - Los detectores cambian; esto es una foto de octubre de 2026.

@@ -13,15 +13,16 @@ computadora: sin API, sin costo y sin GPU.
 
 ## El resultado
 
-Dos ensayos completos generados con IA, medidos a mano en el
+Tres ensayos completos generados con IA, medidos a mano en el
 [detector de IA de Grammarly](https://www.grammarly.com/ai-detector):
 
 | Ensayo | Reescrito por el modelo local | **Con la receta completa** |
 |---|---|---|
 | Turismo en Chiapas (1,150 palabras) | 77% IA | **0% IA** |
 | Dragon Ball (910 palabras) | 84% IA | **10% IA** |
+| Un modelo de IA para clasificar (690 palabras) | sin medir | **0% IA** |
 
-Se conservaron los conceptos clave (61 de 62 entre los dos), sin una sola errata, en unos 5
+Se conservaron los conceptos clave (79 de 80 entre los tres), sin una sola errata, en unos 5
 minutos por ensayo en una Mac M4.
 
 ---
@@ -174,7 +175,7 @@ receta: `original.txt` → `1-hip.txt` (ya corregido a mano) → `2-final.txt`, 
 
 ## Límites
 
-1. **Se midió en Grammarly, con dos ensayos.** Otros detectores no coinciden con él:
+1. **Se midió en Grammarly, con tres ensayos.** Otros detectores no coinciden con él:
    CleverHumanizer le dio 5% de IA a un texto que Grammarly marcó con 69%. Mide en el que te
    importa. No sabemos todavía qué tanto se generaliza a correos o a textos técnicos.
 2. **Los párrafos quedan en oraciones largas encadenadas.** Es justo lo que lo hace pasar;
@@ -238,8 +239,8 @@ what it says** and without adding spelling or punctuation errors. Runs locally: 
 no cost, no GPU. Three steps: `scripts/hip.py` rewrites each paragraph with a *base* model
 (Qwen3-4B-Base plus the HIP adapter from Xu et al. 2026, "Base Models Look Human To AI
 Detectors"); you fix the few slips by hand; `scripts/unir.py` joins the sentences of each
-paragraph with "y" (and), breaking the even sentence rhythm Grammarly keys on. Two full
-essays went from 77% and 84% AI to 0% and 10%. Measured one change at a time: double
+paragraph with "y" (and), breaking the even sentence rhythm Grammarly keys on. Three full
+essays went to 0%, 10% and 0% AI (two of them from 77% and 84%). Measured one change at a time: double
 spaces did nothing, dropping commas helped a little, joining sentences helped most, and
 joining alone on the original text was not enough (57%). Install with `./install.sh` and
 ask your coding agent to "humaniza este texto". Not meant for passing off graded work.
