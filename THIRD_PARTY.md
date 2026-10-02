@@ -1,6 +1,6 @@
 # Software y modelos de terceros
 
-El código de este repositorio es MIT (ver `LICENSE`). `scripts/instalar_hip.sh` descarga,
+El código de este repositorio es MIT (ver `LICENSE`). `scripts/instalar_hip.py` descarga,
 aparte, dos archivos de terceros. No están dentro del repo.
 
 | Archivo | Qué es | Licencia | Origen |

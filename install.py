@@ -28,7 +28,7 @@ if hasattr(sys.stdout, "reconfigure"):
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
 NOMBRE = "humanizar-es"
-COPIAR = ("SKILL.md", "README.md", "LICENSE", "THIRD_PARTY.md", "references", "scripts", "ejemplos")
+COPIAR = ("SKILL.md", "README.md", "README.en.md", "LICENSE", "THIRD_PARTY.md", "references", "scripts", "ejemplos")
 
 
 def casa():

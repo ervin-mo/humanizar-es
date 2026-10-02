@@ -83,6 +83,24 @@ errores visibles y unir oraciones lo consigue sin ellos.
 
 ## 5. Otros detectores
 
+Medido el 2 de octubre de 2026, un escaneo por versión, con un texto humano de control
+(*Nuestra América*, José Martí, 1891, 834 palabras). Ensayo A: el de un modelo de IA para
+clasificar (690 palabras; 0% en Grammarly después de la receta). Ensayo B: el de
+metafísica de `ejemplos/` (sin medir en Grammarly).
+
+| Detector | Control humano | A: original → final | B: original → final |
+|---|---|---|---|
+| GPTZero (gratis, sin cuenta) | 0% IA | 98% → 65% | 100% → 100% |
+| ZeroGPT | 0% IA | 0% → 0% | 98.5% → 97.5% |
+
+**La receta no generaliza a estos dos.** GPTZero baja algo con el ensayo A pero sigue
+marcándolo; con el B no se mueve. ZeroGPT dejó pasar el original del A (0%) y marca el B
+antes y después. Que el control humano saliera 0% en los dos indica que sí distinguen
+texto humano: no es que marquen todo. Si hace falta pasar alguno de ellos, la receta
+necesita otro paso que todavía no existe.
+
+QuillBot pidió iniciar sesión y no se midió.
+
 - **CleverHumanizer** no coincide con Grammarly: correlación de rangos de 0.47 en 16 textos
   medidos en los dos. Al Dragon Ball con oraciones unidas le dio 5% de IA cuando Grammarly
   le dio 69%. Tiende a los extremos (o ~5% o ~78%).

@@ -21,5 +21,10 @@ no significa mucho.
 
 ## Otros detectores
 
-No coinciden con Grammarly (ver `evidencia.md` §5). Si te importa otro detector, mide en
-ese: una versión que pasa uno puede no pasar otro.
+No coinciden con Grammarly: la receta que lleva un ensayo a 0% en Grammarly lo deja en 65%
+en GPTZero (ver `evidencia.md` §5). Si te importa otro detector, mide en ese.
+
+- **GPTZero** ([gptzero.me](https://gptzero.me)): sin cuenta; el botón *Scan* abre el
+  resultado en una pestaña nueva. Lee «AI X% · Mixed · Human».
+- **ZeroGPT** ([zerogpt.com](https://www.zerogpt.com)): sin cuenta; trae anuncios que tapan
+  el cuadro. Lee «X% AI GPT».

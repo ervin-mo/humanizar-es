@@ -1,0 +1,31 @@
+cff-version: 1.2.0
+message: "Si usas este software, cítalo así. / If you use this software, please cite it as below."
+title: "humanizar-es: humanizador de texto IA en español, local y gratis"
+abstract: >-
+  Rewrites AI-generated Spanish text with a local base model (Qwen3-4B-Base + HIP adapter)
+  and joins the sentences of each paragraph, so that Grammarly's AI detector stops flagging
+  it without changing the meaning or adding errors.
+authors:
+  - alias: ervin-mo
+repository-code: "https://github.com/ervin-mo/humanizar-es"
+license: MIT
+version: 2.1.1
+date-released: 2026-10-02
+keywords:
+  - AI humanizer
+  - humanizador de texto IA
+  - AI detector
+  - Spanish
+  - base models
+  - llama.cpp
+references:
+  - type: article
+    title: "Base Models Look Human To AI Detectors"
+    authors:
+      - family-names: Xu
+        given-names: Yixuan Even
+      - name: "et al."
+    year: 2026
+    identifiers:
+      - type: other
+        value: "arXiv:2605.19516"

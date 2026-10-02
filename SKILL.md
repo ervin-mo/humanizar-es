@@ -2,7 +2,7 @@
 name: humanizar-es
 description: Reescribe texto en español generado por IA para que el detector de Grammarly deje de marcarlo, sin cambiar lo que dice y sin meter errores de ortografía ni de puntuación. Corre en local, sin API ni costo, con un modelo base (hip.py) y luego une las oraciones de cada párrafo (unir.py); llevó tres ensayos completos a 0%, 10% y 0% en Grammarly. Úsalo cuando pidan "humanizar", "que no lo detecte el detector de IA", "pasar Grammarly", "quitar las marcas de IA" o "que no suene a ChatGPT".
 metadata:
-  version: "2.1.0"
+  version: "2.1.1"
   idioma: es
   evidencia: references/evidencia.md
 ---
@@ -136,9 +136,10 @@ Recuérdale medir en su detector **junto con un texto suyo escrito sin IA**.
 
 ## Límites (léelos antes de prometer nada)
 
-1. **Se midió en Grammarly, con tres ensayos (0%, 10% y 0%).** Otros detectores no coinciden con
-   él; CleverHumanizer le dio 5% de IA a un texto que Grammarly marcó con 69%. No prometas
-   un número.
+1. **Se midió en Grammarly, con tres ensayos (0%, 10% y 0%).** En otros detectores no
+   pasa: un ensayo que quedó en 0% en Grammarly sigue en 65% en GPTZero, y ZeroGPT no se
+   movió (`references/evidencia.md` §5). Si el usuario necesita otro detector, díselo antes
+   de empezar. No prometas un número.
 2. **Los detectores marcan texto humano** y cambian sin avisar. Por eso el control humano.
 3. **El modelo se entrenó en inglés.** Funciona en español con un truco (le damos las dos
    primeras palabras de cada párrafo), pero comete los errores del paso 6.
