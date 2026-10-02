@@ -1,8 +1,8 @@
 ---
 name: humanizar-es
-description: Reescribe texto en español generado por IA para que los detectores (Grammarly, GPTZero, ZeroGPT, CleverHumanizer) dejen de marcarlo, sin cambiar lo que dice. Usa un modelo base local (hip.py) y luego imperfecciones de redacción (ensuciar.py), sin API y sin costo; llevó un ensayo completo a 8% en Grammarly. Úsalo cuando pidan "humanizar", "quitar las marcas de IA", "que no suene a ChatGPT", "que no lo detecte el detector", "que suene más natural" o "reescribir esto con mi voz". Verifica que no se pierda contenido y no promete pasar todos los detectores.
+description: Reescribe texto en español generado por IA para que los detectores (Grammarly, GPTZero, ZeroGPT, CleverHumanizer) dejen de marcarlo, sin cambiar lo que dice. Usa un modelo base local (hip.py) y luego une las oraciones de cada párrafo (unir.py), sin API, sin costo y sin meter errores de ortografía ni de puntuación; llevó dos ensayos completos a 0% y 10% en Grammarly. Úsalo cuando pidan "humanizar", "quitar las marcas de IA", "que no suene a ChatGPT", "que no lo detecte el detector", "que suene más natural" o "reescribir esto con mi voz". Verifica que no se pierda contenido y no promete pasar todos los detectores.
 metadata:
-  version: "1.3.0"
+  version: "1.4.0"
   idioma: es
   evidencia: references/evidencia.md
 ---
@@ -64,8 +64,8 @@ Para arrancar: `python3 <skill>/scripts/verificar_fidelidad.py 00-original.txt -
 
 ### 4. Comprobar que la receta está lista
 
-La receta es `hip.py` (reescribe con un modelo base local) y luego `ensuciar.py`
-(imperfecciones de redacción). La reescritura a mano no basta (ver *Límites*). Hace falta,
+La receta es `hip.py` (reescribe con un modelo base local), una revisión a mano y luego
+`unir.py` (une las oraciones de cada párrafo). La reescritura a mano no basta (ver *Límites*). Hace falta,
 una sola vez:
 
 1. **llama.cpp**: `llama-completion` o `llama-cli` en el PATH (en Mac:
@@ -90,35 +90,41 @@ Guarda el avance tras cada párrafo. Si tu entorno corta los comandos largos, l�
 segundo plano con `nohup` y revisa su salida. Al final avisa qué párrafos dejó como el
 original porque perdían conceptos.
 
-### 6. Ensuciar la redacción
+### 6. Verificar y corregir, ANTES de unir (bloqueante)
 
 ```bash
-python3 <skill>/scripts/ensuciar.py 01-hip.txt -o 02-final.txt --conceptos conceptos.txt
-```
-
-Por defecto (nivel `extra`) se come algunas comas y pega algunas oraciones con coma, sin
-tocar la ortografía. Así se midió el 8% en Grammarly. **No uses `--ortografia`** salvo
-que el usuario lo pida: mete erratas y quita acentos, y eso se nota en un texto firmado.
-
-### 7. Verificar y releer (bloqueante)
-
-```bash
-python3 <skill>/scripts/verificar_fidelidad.py 00-original.txt 02-final.txt --conceptos conceptos.txt
+python3 <skill>/scripts/verificar_fidelidad.py 00-original.txt 01-hip.txt --conceptos conceptos.txt
 ```
 
 Sale con código 1 si falta un concepto y lista las negaciones que desaparecieron.
-Después **lee cada párrafo del resultado contra el original**. El modelo local puede:
+Después **lee cada párrafo de la reescritura contra el original**. El modelo local puede:
 
 - cambiar un detalle («limpian» → «lavan los platos», «foráneas» → «extranjeras»);
-- comerse una idea secundaria;
-- dejar un error de concordancia («los manos»).
+- cambiar el género o el número («Para una niña» donde decía «los niños»);
+- dejar una errata («timido», «banquettas») o una frase sin sentido;
+- comerse una idea secundaria.
 
-Corrige **solo la palabra culpable**, a mano. No le pidas a un modelo de chat que
-reescriba la oración: le devuelve al texto la huella que el modelo base le quitó.
+Corrige **solo la palabra culpable**, a mano, en `01-hip.txt`. Hazlo **antes** de unir:
+corregir después le devolvió puntos a Grammarly. No le pidas a un modelo de chat que
+reescriba la oración: le devuelve al texto la huella que el modelo base le quitó. Cuantas
+menos correcciones, mejor (Chiapas, con pocas: 0%; Dragon Ball, con 16: 10%).
+
+### 7. Unir las oraciones
+
+```bash
+python3 <skill>/scripts/unir.py 01-hip.txt -o 02-final.txt --conceptos conceptos.txt
+```
+
+Une todas las oraciones de cada párrafo con «y» (o con «, pero» si la siguiente empieza
+con «Pero»). No cambia ninguna otra palabra ni mete errores. Si avisa de palabras que bajó
+a minúscula, revisa que no sean nombres propios; si lo son, agrégalas a `conceptos.txt` y
+vuelve a correrlo. **No uses `ensuciar.py`** salvo que el usuario lo pida: rinde menos y
+mete errores de puntuación.
 
 ### 8. Entregar
 
-El archivo final, la tabla de fidelidad y la lista de lo que corregiste a mano.
+El archivo final, la tabla de fidelidad y la lista de lo que corregiste a mano. Avisa que
+los párrafos quedan en oraciones largas encadenadas: es lo que hace pasar el detector.
 Recuérdale al usuario que mida en su detector **junto con un texto suyo escrito sin IA**:
 si ese también sale como IA, el detector no está midiendo.
 
@@ -126,7 +132,7 @@ si ese también sale como IA, el detector no está midiendo.
 
 Si no se puede correr el modelo local, `scripts/cubo.py` reescribe oración por oración
 con una API compatible con OpenAI, guiado por un detector local, y luego se pasa por
-`ensuciar.py` igual. Es más lento (46 minutos el mismo ensayo) y gasta API. Necesita la
+`unir.py` igual. Es más lento (46 minutos el mismo ensayo) y gasta API. Necesita la
 clave en `HUMANIZAR_API_KEY` o en `~/.config/humanizar-es/api_key` (permisos 600; usa el
 archivo si tu entorno no les pasa a los comandos las variables con «KEY» en el nombre,
 como Codex). Pídele al usuario que la guarde él. **Nunca la muestres, la repitas en el
@@ -191,9 +197,9 @@ detector y leyó peor: más no es mejor.
 - **Cadenas de traducción** (español → chino → japonés → finés → español). Medido:
   bajó poco (98.5% → 81.2% en ZeroGPT) e invirtió un concepto. `<skill>/scripts/cadena_llm.py`
   queda solo para reproducir el experimento.
-- **Erratas deliberadas.** Cuestan reputación en cualquier texto firmado. Las
-  imperfecciones de redacción de `ensuciar.py` bajaron Grammarly más que las de
-  ortografía (8% contra 12%), así que no hacen falta.
+- **Erratas deliberadas, comas de menos o espacios dobles.** Cuestan reputación y no hacen
+  falta: unir oraciones bajó más que todo eso junto, sin un solo error. Los espacios
+  dobles no movieron nada (84% → 84%).
 - **Pedirle a un modelo de chat que «lo haga más humano».** Cambiar de modelo de chat no
   movió a los detectores: todos dejan la misma huella.
 - **Sinónimos palabra por palabra.** El ritmo y la estructura siguen iguales. Incluso
@@ -214,8 +220,8 @@ detector y leyó peor: más no es mejor.
    las señales que miran los detectores, no un retrato de cómo escribe la gente.
 5. **Quitar las frases típicas de IA no basta.** Una reescritura completa hecha por un
    modelo, con cero delatores, sacó 100% en Grammarly. Lo que funcionó con un ensayo
-   completo fue `hip.py` + `ensuciar.py`: 8% en Grammarly. La variante con erratas sacó
-   95% humano en CleverHumanizer; la receta exacta no se midió ahí. No prometas un número.
+   completo fue `hip.py` + `unir.py`: 0% y 10% en Grammarly en dos ensayos. Se optimizó para
+   Grammarly; CleverHumanizer no coincide con él. No prometas un número.
 6. **Un solo texto de prueba.** El benchmark es un caso bien controlado, no una
    estadística. Diferencias de pocos puntos no significan nada.
 7. **Comparar varios documentos del mismo autor** revela patrones que un documento
@@ -236,7 +242,8 @@ entrega académica, avisa del riesgo antes de proceder: ya no es un problema té
 - `references/detectores.md` — cómo medir con cada instrumento y sus trampas
 - `references/evidencia.md` — el benchmark completo y la literatura
 - `scripts/hip.py` — la reescritura con el modelo base local (necesita `instalar_hip.sh`)
-- `scripts/ensuciar.py` — las imperfecciones de redacción, sin dependencias
+- `scripts/unir.py` — une las oraciones de cada párrafo, sin dependencias
+- `scripts/ensuciar.py` — comas de menos y oraciones pegadas con coma (alternativa)
 - `scripts/instalar_hip.sh` — descarga y prepara el modelo local
 - `scripts/cubo.py` — la reescritura guiada por detector (alternativa con API)
 - `scripts/sustituto.py` — el detector local que guía al cubo

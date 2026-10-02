@@ -258,6 +258,50 @@ lo mismo a todas las versiones del ensayo (0.76–0.82) y ve como IA a Wikipedia
 Límites de esta sección: un solo ensayo, un escaneo por versión, y la receta exacta no se
 midió en CleverHumanizer.
 
+### 4f. Qué castiga Grammarly: un cambio a la vez (1 de octubre de 2026)
+
+Tercer texto: un ensayo sobre Dragon Ball, 930 palabras en 7 párrafos, generado con IA (no
+se publica; es de un usuario). Base: la reescritura de `hip.py` sin corregir. A cada
+versión se le aplicó **un solo cambio**, y se midió en Grammarly con el cuadro vacío.
+
+| Versión (misma base) | Grammarly |
+|---|---|
+| Base, sin cambios | 84% |
+| Espacios dobles al azar | 84% |
+| Quitar ~35% de las comas | 60% |
+| Pegar ~50% de las oraciones con coma | 54% |
+| Unir ~60% de las oraciones con «y» | 40% |
+| **Unir todas las oraciones de cada párrafo con «y»** | **8%** |
+| Lo mismo, en 4 párrafos en vez de 7 | 8% |
+| El original **sin** `hip.py`, unir ~60% | 66% |
+| El original **sin** `hip.py`, unir todas | 57% |
+
+Y la receta completa, corrigiendo a mano antes de unir:
+
+| Texto | `hip.py` solo | **corregido + `unir.py`** |
+|---|---|---|
+| Dragon Ball | 84% | **10%** (16 correcciones a mano) |
+| Chiapas (§4e) | 77% | **0%** |
+
+Lo que enseña:
+
+1. **Grammarly mira el ritmo de las oraciones**, no la tipografía: los espacios dobles no
+   movieron nada, y cuantas más oraciones se unen, más baja.
+2. **Unir con «y» rinde más que cualquier error de puntuación**, y no mete ninguno.
+3. **Los dos pasos hacen falta.** Unir sin reescribir antes con el modelo base se quedó en
+   57%; el modelo base sin unir, en 84%.
+4. **Corregir con un modelo de chat sube el número.** Las correcciones a mano de esta sesión
+   (hechas por Claude) subieron Dragon Ball entre 2 y 8 puntos en cada caso medido, y una
+   segunda pasada de `hip.py` más 19 correcciones lo llevó a 91%. Por eso la receta corrige
+   solo la palabra culpable, y antes de unir.
+5. **El número de párrafos no importa** (8% con 7 y con 4).
+
+Detectores probados como sustitutos de Grammarly, y descartados: CleverHumanizer
+(Spearman 0.47 contra Grammarly en 16 textos; al Dragon Ball unido le dio 5% de IA cuando
+Grammarly dio 69%), el detector del editor de Grammarly (con cuenta gratuita muestra 20% a
+todo), Copyleaks y QuillBot (no se pudieron automatizar). El detector público de Grammarly
+permite 3 escaneos al día con una cuenta gratuita.
+
 ## 5. Fidelidad de contenido
 
 27 conceptos del original (`ejemplos/conceptos-metafisica.txt`):

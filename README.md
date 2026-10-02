@@ -13,19 +13,18 @@ promesas. Corre en tu computadora, sin API y sin costo.
 
 ## El resultado
 
-Un ensayo completo de 1,150 palabras generado con IA, medido a mano en dos detectores:
+Dos ensayos completos generados con IA, medidos a mano en Grammarly. La receta no mete
+**ni un error de ortografía ni de puntuación**:
 
-| Versión | Grammarly | CleverHumanizer | Tiempo | Costo |
-|---|---|---|---|---|
-| Reescrito por un modelo de chat (el cubo) | 67% IA | 80% IA | 46 min | API |
-| Reescrito por un modelo base local (`hip.py`) | 77% IA | 81% IA | 4 min | $0 |
-| **`hip.py` + `ensuciar.py`** | **8% IA** | **95% humano**\* | **4 min** | **$0** |
+| Ensayo | Reescrito por el modelo local (`hip.py`) | **+ `unir.py`** |
+|---|---|---|
+| Turismo en Chiapas (1,150 palabras) | 77% IA | **0% IA** |
+| Dragon Ball (930 palabras) | 84% IA | **10% IA**\* |
 
-\* El 95% de CleverHumanizer se midió con la variante que además tenía errores de
-ortografía (12% en Grammarly). La receta de abajo **no mete errores de ortografía**:
-solo imperfecciones de redacción, y en Grammarly le fue mejor.
+\* Con 16 correcciones de sentido hechas a mano antes de unir. Sin ellas, 8%.
 
-Mismo contenido: los 38 conceptos del original siguen ahí.
+Mismo contenido: los conceptos del original siguen ahí. Corre en tu computadora, en
+unos 5 minutos, sin API y sin costo.
 
 **Los dos descubrimientos:**
 
@@ -33,10 +32,12 @@ Mismo contenido: los 38 conceptos del original siguen ahí.
    modelo de chat que reescriba (DeepSeek, GPT, Claude, Kimi…) deja esa huella. El texto
    de un modelo **base**, sin entrenamiento de chat, les parece humano
    ([Xu et al. 2026](https://arxiv.org/abs/2605.19516)).
-2. **Los detectores castigan el texto demasiado limpio.** Comas de manual, una oración por
-   idea, ritmo parejo. Comerse algunas comas y pegar algunas oraciones con coma, como
-   hace cualquiera que escribe rápido, bajó Grammarly de 77% a 8%, sin tocar la
-   ortografía.
+2. **Grammarly reconoce el ritmo: oraciones de largo parejo, cada una con su punto.**
+   Unir las oraciones de cada párrafo con «y», como escribe alguien de corrido, bajó el
+   mismo texto de 84% a 8%. Medido cambio por cambio: los espacios dobles no movieron nada
+   (84%), quitar comas bajó a 60%, pegar oraciones con coma a 54% y unir con «y» a 40%; unir
+   todas, a 8%. Sobre el original sin reescribir, unir no basta (57%): hacen falta los dos
+   pasos.
 
 Lo que **no** funcionó, medido: quitar las frases típicas de IA (siguió en 100%), cambiar
 de modelo de chat, reescribir palabra por palabra y reorganizar el ensayo a mano. Todo el
@@ -47,11 +48,11 @@ detalle en [`references/evidencia.md`](references/evidencia.md).
 ## Cómo funciona
 
 ```
- tu texto ──► hip.py, párrafo por párrafo ──► ensuciar.py ──► texto final
-               │                                 │
-               ├─ un modelo base local            ├─ se come algunas comas
-               │  (Qwen3-4B + adaptador HIP)      ├─ pega algunas oraciones con coma
-               │  reescribe cada párrafo          └─ nunca toca la ortografía
+ tu texto ──► hip.py ──► tú corriges detalles ──► unir.py ──► texto final
+               │           (antes de unir)           │
+               ├─ un modelo base local               └─ une las oraciones de cada
+               │  (Qwen3-4B + adaptador HIP)            párrafo con «y» (o «, pero»);
+               │  reescribe cada párrafo                no cambia ninguna otra palabra
                └─ si un párrafo pierde un concepto,
                   se reintenta; si no hay forma,
                   queda el original
@@ -62,8 +63,8 @@ detalle en [`references/evidencia.md`](references/evidencia.md).
   (código MIT, adaptador Apache-2.0) que convierte a Qwen3-4B-Base en un parafraseador.
   Se entrenó en inglés; `hip.py` le da las dos primeras palabras de cada párrafo para que
   siga en español. Una sola pasada: con más, el texto se aleja del sentido.
-- **`ensuciar.py`** no usa ningún modelo: es un script determinista. Misma semilla, mismo
-  resultado.
+- **`unir.py`** no usa ningún modelo: es un script determinista. Respeta los nombres
+  propios de tu lista de conceptos y avisa si bajó a minúscula alguna palabra dudosa.
 
 ---
 
@@ -111,27 +112,27 @@ Para arrancar puedes pedir una lista automática y completarla:
 Unos 30 segundos por párrafo en una Mac M4. Guarda el avance tras cada párrafo y avisa
 cuáles dejó como el original.
 
-### 4. Ensuciar la redacción
+### 4. Releer y corregir, ANTES de unir (no te lo saltes)
 
 ```bash
-python3 scripts/ensuciar.py reescrito.txt -o final.txt --conceptos conceptos.txt
+python3 scripts/verificar_fidelidad.py mi-texto.txt reescrito.txt --conceptos conceptos.txt
 ```
 
-Por defecto usa el nivel `extra`, el medido (8% en Grammarly), y **no toca la
-ortografía**. Hay `ligero`, `medio` y `fuerte` si prefieres menos. `--semilla N` da otra
-variante. `--ortografia` además quita acentos y mete erratas de dedo: baja más en algunos
-detectores, pero son errores que se notan.
+Y **lee la reescritura contra el original.** El modelo local a veces cambia un detalle
+(«limpian» → «lavan los platos», «foráneas» → «extranjeras»), se equivoca de género
+(«Para una niña» donde decía «los niños») o deja una errata («timido»). Corrige **solo la
+palabra culpable**, a mano, y hazlo ahora: corregir después de unir le devolvió puntos a
+Grammarly. No le pidas a un modelo de chat que lo arregle: le devuelve la huella.
 
-### 5. Verificar y releer (no te lo saltes)
+### 5. Unir las oraciones
 
 ```bash
-python3 scripts/verificar_fidelidad.py mi-texto.txt final.txt --conceptos conceptos.txt
+python3 scripts/unir.py reescrito.txt -o final.txt --conceptos conceptos.txt
 ```
 
-Y **lee el resultado contra el original.** El modelo local a veces cambia un detalle: en la
-prueba puso «lavan los platos» donde decía «limpian», y «agencias extranjeras» donde decía
-«foráneas». Corrige esos detalles a mano; no le pidas a otro modelo de chat que lo arregle,
-porque le devuelve la huella al texto.
+Cada párrafo queda en una o dos oraciones largas encadenadas con «y». Si avisa de palabras
+que bajó a minúscula, revisa que no sea un nombre propio y, si lo es, agrégalo a
+`conceptos.txt`. Se lee como alguien que escribe de corrido: es justo lo que lo hace pasar.
 
 ### 6. Medir en tu detector, con un control
 
@@ -149,16 +150,17 @@ cualquier API compatible con OpenAI y se queda con la variante que un detector l
 cambian el sentido. Es la idea de *Adversarial Paraphrasing*
 ([NeurIPS 2025](https://github.com/chengez/Adversarial-Paraphrasing)).
 
-Con el ensayo completo sacó 67% en Grammarly solo y **4% seguido de `ensuciar.py`** (esa
-medición fue con la variante con errores de ortografía). Pero tardó 46 minutos, contra 4 de
-`hip.py`.
+Con el ensayo completo sacó 67% en Grammarly solo y 4% seguido de `ensuciar.py` con
+errores de ortografía (no se ha medido con `unir.py`). Tardó 46 minutos, contra 4 de
+`hip.py`. `scripts/ensuciar.py` (comas de menos y oraciones pegadas con coma) queda como
+alternativa a `unir.py`: rinde menos y mete errores de puntuación.
 
 ```bash
 export HUMANIZAR_API_KEY=tu-clave
 export HUMANIZAR_API_URL=https://api.deepseek.com/chat/completions
 export HUMANIZAR_MODEL=deepseek-flash
 .venv/bin/python scripts/cubo.py mi-texto.txt -o cubo.txt --conceptos conceptos.txt --registro academico
-python3 scripts/ensuciar.py cubo.txt -o final.txt --conceptos conceptos.txt
+python3 scripts/unir.py cubo.txt -o final.txt --conceptos conceptos.txt
 ```
 
 Si usas el cubo a través de un agente como Codex, guarda la clave en un archivo privado en
@@ -189,7 +191,7 @@ cambia solo palabras sueltas (no movió a Grammarly).
 
 ## Costos y tiempos (medidos, ensayo de 1,150 palabras)
 
-| | `hip.py` + `ensuciar.py` | El cubo |
+| | `hip.py` + `unir.py` | El cubo |
 |---|---|---|
 | Tiempo | ~4–7 min | ~46 min |
 | Dinero | $0 | ~790 mil tokens de API |
@@ -240,7 +242,7 @@ error más peligroso: «principio de *no* contradicción» → «principio de co
 
 `SKILL.md` sigue el formato abierto de *Agent Skills* (un `SKILL.md` con `name` y
 `description`), así que funciona en cualquier agente que lo lea. Le pides «humaniza este
-texto» y el agente arma la lista de conceptos, corre `hip.py` y `ensuciar.py`, verifica
+texto» y el agente arma la lista de conceptos, corre `hip.py`, te ayuda a corregir y corre `unir.py`, verifica
 el contenido y relee el resultado contigo.
 
 | Agente | Dónde busca skills | ¿Lo cubre `./install.sh`? |
@@ -275,7 +277,8 @@ texto, pero por sí sola llegó a 75% en Grammarly: para pasar el detector, usa 
 | Script | Requiere | Para qué |
 |---|---|---|
 | `scripts/hip.py` | `.venv` + llama.cpp + `instalar_hip.sh` | **la reescritura con el modelo base local** |
-| `scripts/ensuciar.py` | Python | **las imperfecciones de redacción** |
+| `scripts/unir.py` | Python | **une las oraciones de cada párrafo** |
+| `scripts/ensuciar.py` | Python | comas de menos y oraciones pegadas con coma (alternativa) |
 | `scripts/instalar_hip.sh` | llama.cpp, git | descarga y prepara el modelo local |
 | `scripts/cubo.py` | `.venv` + una API de modelo | la reescritura guiada por detector (alternativa) |
 | `scripts/ruleta.py` | `.venv` + una API de modelo | sinónimos guiados por detector (opcional) |
@@ -295,20 +298,20 @@ score, límites de uso): [`references/detectores.md`](references/detectores.md).
 
 ## Límites
 
-1. **Un ensayo, una medición por versión.** La receta se midió con un ensayo de
-   divulgación de 1,150 palabras; cada número es un escaneo a mano. No sabemos cuánto se
+1. **Dos ensayos, una medición por versión.** La receta se midió con dos ensayos de
+   divulgación; cada número es un escaneo a mano en Grammarly. No sabemos cuánto se
    generaliza a marketing, correos o textos técnicos.
-2. **El 8% es de Grammarly.** La receta exacta (redacción `extra`, sin errores de
-   ortografía) no se midió en CleverHumanizer; la variante con errores sacó 95% humano.
+2. **Se optimizó para Grammarly.** CleverHumanizer no coincide con Grammarly (al Dragon
+   Ball con oraciones unidas le dio 5% de IA cuando Grammarly le dio 69%): mide en el
+   detector que te importa.
 3. **El modelo local se entrenó en inglés.** Funciona en español con un truco (le damos
    las primeras palabras), pero a veces cambia un detalle o deja un párrafo sin tocar.
 4. **Los detectores cambian.** Lo que hoy pasa puede no pasar mañana, y un detector puede
    cambiar de opinión sobre el mismo texto el mismo día (le pasó a GPTZero).
 5. **Los detectores marcan texto humano.** Un artículo de Wikipedia de 2014 sacó 46.5% en
    ZeroGPT.
-6. **La redacción queda menos pulida.** Es justo lo que la hace pasar: comas de menos y
-   oraciones largas pegadas con coma. Si tu texto exige redacción impecable, este no es
-   tu método.
+6. **Los párrafos quedan en oraciones muy largas.** Es justo lo que los hace pasar. Si tu
+   texto exige oraciones cortas y pulidas, este no es tu método.
 7. **Analizar varios documentos del mismo autor** revela patrones que un documento suelto
    no muestra; humanizar uno no protege de eso.
 
@@ -326,7 +329,7 @@ reescritura lo resuelve.
 
 ```
 humanizar-es/
-├── scripts/              hip.py, ensuciar.py, el cubo, el detector local y los medidores
+├── scripts/              hip.py, unir.py, el cubo, el detector local y los medidores
 ├── ejemplos/             el ensayo de prueba, sus versiones medidas y 2 controles humanos
 │   └── parrafo/          el párrafo que pasó los dos detectores
 ├── references/
@@ -365,10 +368,10 @@ Tools to make AI-written Spanish text stop being flagged as AI **without changin
 says**, running locally at no cost. The recipe: `scripts/hip.py` rewrites each paragraph
 with a *base* model (Qwen3-4B-Base plus the HIP adapter from Xu et al. 2026, "Base Models
 Look Human To AI Detectors"), seeded with the paragraph's first words so it stays in
-Spanish; then `scripts/ensuciar.py` deterministically roughens the prose (drops some
-commas, joins some sentences with commas) without touching spelling. On a 1,150-word
-essay, Grammarly went from 77% AI (base-model rewrite alone) to 8%, in about 4 minutes on
-CPU, with all 38 key concepts preserved. Swapping chat models, removing typical "AI
-phrases", word-level synonym swaps and manual restructuring did not work. The evidence is
-small (one essay, measured by hand); every number is in `references/evidencia.md`, and the
-tool is not meant for passing off graded work.
+Spanish; you fix the few meaning slips by hand; then `scripts/unir.py` joins the sentences
+of each paragraph with "y" (and), the way people write in one go. No spelling or
+punctuation errors are introduced. Two full essays went to 0% and 10% AI on Grammarly.
+Tested one change at a time, double spaces did nothing, dropping commas helped a little,
+and joining sentences helped most; joining alone on the original text was not enough
+(57%). The evidence is small (two essays, measured by hand); every number is in
+`references/evidencia.md`, and the tool is not meant for passing off graded work.

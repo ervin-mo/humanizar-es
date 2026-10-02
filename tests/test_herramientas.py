@@ -404,5 +404,46 @@ class Hip(unittest.TestCase):
         self.assertFalse(hip.es_titulo("El turismo crece."))
 
 
+class Unir(unittest.TestCase):
+    """El paso que une oraciones, sin modelos."""
+
+    @classmethod
+    def setUpClass(cls):
+        import unir
+        cls.u = unir
+
+    def test_une_con_y_y_respeta_nombres(self):
+        t = ("Goku entrena todos los días. La serie lo muestra sin prisa. "
+             "Vegeta lo observa de lejos. Pero nunca lo admite.\n")
+        conceptos = [("Goku", ["Goku"]), ("Vegeta", ["Vegeta"])]
+        r = self.u.unir(t, conceptos)
+        self.assertEqual(r.strip(), "Goku entrena todos los días y la serie lo muestra sin prisa "
+                                    "y Vegeta lo observa de lejos, pero nunca lo admite.")
+
+    def test_avisa_nombres_sin_conceptos(self):
+        dudosas = []
+        r = self.u.unir("Goku entrena. Vegeta lo observa.\n", dudosas=dudosas)
+        self.assertIn("y vegeta", r)
+        self.assertEqual(dudosas, ["Vegeta"])
+
+    def test_no_cambia_ninguna_palabra(self):
+        texto = open(os.path.join(EJ, "00-original.txt"), encoding="utf-8").read()
+        r = self.u.unir(texto, vf.cargar_conceptos(CONCEPTOS))
+        quitar = lambda t: [w.lower() for w in re.findall(r"\w+", t)
+                            if w.lower() not in ("y", "pero", "sin", "embargo", "asimismo", "además")]
+        self.assertEqual(quitar(r), quitar(texto))
+        self.assertLess(r.count(". "), texto.count(". "))
+
+    def test_conceptos_con_mayuscula_y_palabras_comunes(self):
+        conceptos = [("San Cristóbal de Las Casas", ["San Cristóbal de Las Casas"])]
+        propios = self.u.nombres_propios("Llegamos a San Cristóbal de Las Casas.", conceptos)
+        self.assertIn("Cristóbal", propios)
+        self.assertNotIn("Las", propios)
+
+    def test_respeta_parrafos(self):
+        r = self.u.unir("Uno dos. Tres cuatro.\n\nCinco seis. Siete ocho.\n")
+        self.assertEqual(r, "Uno dos y tres cuatro.\n\nCinco seis y siete ocho.\n")
+
+
 if __name__ == "__main__":
     unittest.main()

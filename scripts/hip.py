@@ -19,7 +19,7 @@ Instalar antes: ./scripts/instalar_hip.sh  (unos 5.5 GB en ~/.cache/humanizar-es
 
 uso:
   python3 scripts/hip.py original.txt -o reescrito.txt --conceptos conceptos.txt
-  python3 scripts/ensuciar.py reescrito.txt -o final.txt --conceptos conceptos.txt
+  python3 scripts/unir.py reescrito.txt -o final.txt --conceptos conceptos.txt
 """
 import argparse
 import os
@@ -129,8 +129,9 @@ def main():
     print(f"\nEscrito: {args.salida}")
     if sin_tocar:
         print(f"AVISO: los parrafos {sin_tocar} quedaron como el original (perdian conceptos).")
-    print("Siguiente paso: relee contra el original (HIP a veces cambia un detalle, como\n"
-          "«limpian» por «lavan los platos») y luego scripts/ensuciar.py.")
+    print("Siguiente paso: relee contra el original y corrige a mano lo que cambio (HIP a\n"
+          "veces cambia un detalle, como «limpian» por «lavan los platos»); despues\n"
+          "scripts/unir.py.")
     return 0
 
 

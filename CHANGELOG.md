@@ -1,5 +1,14 @@
 # Cambios
 
+## 1.4.0 — 1 de octubre de 2026
+
+- **`scripts/unir.py`** reemplaza a `ensuciar.py` en la receta: une las oraciones de cada
+  párrafo con «y», sin meter errores de ortografía ni de puntuación. `hip.py` + `unir.py`
+  llevó dos ensayos completos a 0% y 10% en Grammarly.
+- La receta corrige a mano **antes** de unir: corregir después subía el número.
+- `ensuciar.py` queda como alternativa; ya no se recomienda.
+- Evidencia nueva en `references/evidencia.md` §4f: qué castiga Grammarly, un cambio a la vez.
+
 ## 1.3.0 — 1 de octubre de 2026
 
 - **Receta nueva, local y sin costo:** `scripts/hip.py` reescribe cada párrafo con un
