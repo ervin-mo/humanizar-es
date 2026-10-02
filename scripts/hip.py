@@ -112,6 +112,16 @@ def _correr_llama(archivo_prompt, parrafo, hilos, temperatura):
     return r.stdout
 
 
+def restaurar_porcentajes(original, reescrito):
+    """El adaptador HIP se come el signo %: «60%» sale como «60». Si el original traia
+    ese numero con %, se le devuelve. No toca numeros que el original no tenia con %."""
+    for n in set(re.findall(r"(\d+(?:[.,]\d+)?)\s?%", original)):
+        if not re.search(rf"(?<![\d.,]){re.escape(n)}\s?%", reescrito):
+            reescrito = re.sub(rf"(?<![\d.,]){re.escape(n)}(?![\d.,]*\d)(?!\s?%)",
+                               n + "%", reescrito, count=1)
+    return reescrito
+
+
 def conceptos_en(texto, conceptos):
     t = vf.norm(texto)
     return {n for n, variantes in conceptos if any(vf.patron(v).search(t) for v in variantes)}
@@ -150,7 +160,7 @@ def main():
         pedidos = conceptos_en(p, conceptos)
         elegido = None
         for _ in range(args.intentos):
-            r = girar(p, args.hilos)
+            r = restaurar_porcentajes(p, girar(p, args.hilos))
             if len(r.split()) < 0.6 * len(p.split()) or len(r.split()) > 1.6 * len(p.split()) + 10:
                 continue  # truncado o desbocado
             if pedidos - conceptos_en(r, conceptos):

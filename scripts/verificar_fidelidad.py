@@ -39,13 +39,17 @@ if hasattr(sys.stdout, "reconfigure"):  # que una consola de Windows no truene c
     sys.stdout.reconfigure(errors="replace")
     sys.stderr.reconfigure(errors="replace")
 
-NEGACIONES = r"no|ni|nunca|jamas|tampoco|sin|nadie|nada|ningun|ninguna|ninguno"
+# espanol e ingles
+NEGACIONES = (r"no|ni|nunca|jamas|tampoco|sin|nadie|nada|ningun|ninguna|ninguno|"
+              r"not|never|nor|without|none|nobody|nothing|neither|cannot")
 
 # Palabras con mayuscula que no son nombres propios aunque no abran oracion.
 NO_PROPIOS = {
     "el", "la", "los", "las", "un", "una", "unos", "unas", "de", "del", "y", "o", "en",
     "a", "al", "por", "para", "con", "sin", "que", "se", "su", "sus", "lo", "es",
     "este", "esta", "estos", "estas", "ese", "esa", "como", "pero", "si", "no",
+    "the", "an", "of", "and", "or", "in", "on", "at", "for", "to", "with", "by", "from",
+    "this", "that", "these", "those", "it", "its", "but", "if", "when", "while", "as",
 }
 
 
@@ -96,7 +100,7 @@ def extraer_conceptos(texto):
     #    puede ser solo de posicion: un nombre que SOLO aparece al inicio de oracion
     #    no se detecta. Por eso la lista automatica es un punto de partida.
     mayus = r"[A-ZÁÉÍÓÚÑÜ][\wáéíóúñü]+"
-    union = r"(?:\s+(?:de|del|la|las|los|y)\s+|\s+)"
+    union = r"(?:\s+(?:de|del|la|las|los|y|of|the)\s+|\s+)"
     for m in re.finditer(rf"{mayus}(?:{union}{mayus})*", texto):
         inicio = m.start()
         previo = texto[:inicio].rstrip()

@@ -54,6 +54,10 @@ class Fidelidad(unittest.TestCase):
             self.assertIn("PERDIDO", r.stdout)
             self.assertIn("«no contradiccion»", r.stdout)
 
+    def test_negaciones_en_ingles(self):
+        self.assertIn("not the", vf.negaciones("This is not the answer."))
+        self.assertIn("never again", vf.negaciones("It will never again happen."))
+
     def test_ignora_acentos_y_forma_unicode(self):
         texto_nfd = unicodedata.normalize("NFD", "La Crítica de la razón pura de Kant")
         self.assertTrue(vf.patron("critica de la razon pura").search(vf.norm(texto_nfd)))
@@ -108,6 +112,18 @@ class Unir(unittest.TestCase):
         r = unir.unir("Un título\n\nUno dos. Tres cuatro.\n\nCinco seis. Siete ocho.\n")
         self.assertEqual(r, "Un título\n\nUno dos y tres cuatro.\n\nCinco seis y siete ocho.\n")
 
+    def test_en_ingles_une_con_and_y_respeta_nombres(self):
+        t = ("Dr. Smith moved to Boston. The city was cold. However, he stayed. "
+             "I liked it. Moreover, the food was great. But winter came.\n")
+        self.assertEqual(unir.detectar_idioma(t), "en")
+        self.assertEqual(unir.unir(t).strip(),
+                         "Dr. Smith moved to Boston and the city was cold, but he stayed "
+                         "and I liked it and also the food was great, but winter came.")
+
+    def test_detecta_el_idioma(self):
+        self.assertEqual(unir.detectar_idioma(leer(ORIGINAL)), "es")
+        self.assertEqual(unir.detectar_idioma("The cat sat on the mat and it was happy."), "en")
+
     def test_el_ejemplo_final_es_reproducible(self):
         r = unir.unir(leer(HIP), vf.cargar_conceptos(CONCEPTOS))
         self.assertEqual(r, leer(FINAL))
@@ -123,6 +139,15 @@ class Hip(unittest.TestCase):
     def test_limpia_la_salida(self):
         self.assertEqual(hip.limpiar_salida("El turismo", " de la sierra  crece.\n</target_text>basura"),
                          "El turismo de la sierra crece.")
+
+    def test_restaura_el_signo_de_porcentaje(self):
+        self.assertEqual(hip.restaurar_porcentajes("Arabica es el 60% del total.",
+                                                   "Arabica representa el 60 del total."),
+                         "Arabica representa el 60% del total.")
+        self.assertEqual(hip.restaurar_porcentajes("Sube 5% al año.", "Sube 5% cada año."),
+                         "Sube 5% cada año.")
+        self.assertEqual(hip.restaurar_porcentajes("Hay 60 países.", "Son 60 países."),
+                         "Son 60 países.")
 
     def test_reconoce_titulos(self):
         self.assertTrue(hip.es_titulo("Turismo y tecnología"))
