@@ -15,7 +15,7 @@ parrafo pierde un concepto de --conceptos o sale truncado, se reintenta; si no h
 forma, se deja el original y se avisa.
 
 Corre en CPU (-ngl 0) con prioridad baja. Unos 30 s por parrafo en una Mac M4.
-Instalar antes: ./scripts/instalar_hip.sh  (unos 5.5 GB en ~/.cache/humanizar-es/hip)
+Instalar antes: ./scripts/instalar_hip.sh  (unos 4.6 GB en ~/.cache/humanizar-es/hip)
 
 uso:
   python3 scripts/hip.py original.txt -o reescrito.txt --conceptos conceptos.txt
@@ -23,13 +23,13 @@ uso:
 """
 import argparse
 import os
+import re
 import shutil
 import subprocess
 import sys
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import estilo  # noqa: E402
 import verificar_fidelidad as vf  # noqa: E402
 
 DIR_MODELO = os.environ.get("HUMANIZAR_HIP_DIR",
@@ -101,7 +101,7 @@ def main():
 
     texto = open(args.original, encoding="utf-8").read()
     conceptos = vf.cargar_conceptos(args.conceptos) if args.conceptos else []
-    parrafos = estilo.parrafos(texto)
+    parrafos = [x.strip() for x in re.split(r"\n\s*\n", texto) if x.strip()]
     salida, sin_tocar, t0 = [], [], time.time()
     for i, p in enumerate(parrafos, 1):
         if es_titulo(p):

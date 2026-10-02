@@ -86,7 +86,7 @@ instalar_en() {
   else
     mkdir -p "$destino"
     # solo lo que la skill usa; sin entorno virtual, git ni pruebas
-    for item in SKILL.md README.md LICENSE references scripts ejemplos; do
+    for item in SKILL.md README.md LICENSE THIRD_PARTY.md references scripts ejemplos; do
       if [ -e "$AQUI/$item" ]; then cp -R "$AQUI/$item" "$destino/"; fi
     done
     find "$destino" \( -name .DS_Store -o -name __pycache__ \) -prune -exec rm -rf {} + 2>/dev/null || true
@@ -106,5 +106,6 @@ echo
 echo "Listo. Abre una sesion nueva de tu agente y pidele, por ejemplo:"
 echo "  «humaniza este texto sin cambiar lo que dice»"
 echo
-echo "Para la receta (hip.py + ensuciar.py) hace falta ademas, una vez:"
-echo "  cd \"$AQUI\" && python3 -m venv .venv && .venv/bin/pip install -r scripts/requirements.txt && ./scripts/instalar_hip.sh"
+echo "La primera vez hace falta ademas el modelo local (~4.6 GB, una sola vez):"
+echo "  brew install llama.cpp      # o winget install llama.cpp en Windows"
+echo "  \"$AQUI/scripts/instalar_hip.sh\""

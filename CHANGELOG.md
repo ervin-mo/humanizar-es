@@ -1,5 +1,18 @@
 # Cambios
 
+## 2.0.0 — 1 de octubre de 2026
+
+La repo queda solo con la receta que funciona: **`hip.py` → corrección a mano →
+`unir.py`**. Dos ensayos completos a 0% y 10% en Grammarly, sin errores.
+
+- `instalar_hip.sh` ya no convierte nada: baja el adaptador HIP ya convertido a GGUF desde
+  las descargas del repo y verifica los dos archivos con sha256. Sin paquetes de Python.
+- Se quitaron el cubo, la ruleta, `ensuciar.py`, el detector local, la cadena de
+  traducción, la guía de reescritura a mano y los ejemplos viejos. Lo que se probó y no
+  funcionó queda resumido en `references/evidencia.md` §4.
+- Ejemplo nuevo en `ejemplos/`: un ensayo, su reescritura corregida y el resultado.
+- `SKILL.md` reescrita para que el agente siga la receta de punta a punta.
+
 ## 1.4.0 — 1 de octubre de 2026
 
 - **`scripts/unir.py`** reemplaza a `ensuciar.py` en la receta: une las oraciones de cada

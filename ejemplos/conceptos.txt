@@ -1,10 +1,10 @@
-# Conceptos intocables del ensayo de ejemplo (00-original.txt).
-# Son los 27 que se verificaron en el benchmark. Uso:
-#   python3 scripts/verificar_fidelidad.py ejemplos/00-original.txt \
-#       ejemplos/01-reglas-estilo.txt --conceptos ejemplos/conceptos-metafisica.txt
+# Conceptos que no se pueden perder del ensayo de ejemplo (original.txt). Uso:
+#   python3 scripts/verificar_fidelidad.py ejemplos/original.txt ejemplos/final.txt \
+#       --conceptos ejemplos/conceptos.txt
 #
 # Una linea por concepto. Variantes separadas por |. Se ignoran mayusculas y
 # acentos. Palabra completa con plural opcional; con * al final, por prefijo.
+# Los nombres propios de esta lista, ademas, unir.py los respeta con mayuscula.
 
 Aristóteles | Estagirita
 ousía
@@ -12,7 +12,7 @@ Tomás de Aquino | Aquino
 potencia y acto
 no contradicción
 contingencia
-Descartes
+René Descartes | Descartes
 res cogitans
 res extensa
 Kant
