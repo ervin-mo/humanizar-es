@@ -65,10 +65,12 @@ def resolve_model_dir(environ=None, home=None):
 MODEL_DIR = resolve_model_dir()
 
 
-def build_prompt(paragraph, lead_words=2):
+def build_prompt(paragraph, lead_words=2, lead=None):
     """The format HIP was trained on, plus the first words of the paragraph so the
-    model keeps writing in the language of the original."""
-    lead = " ".join(paragraph.split()[:lead_words])
+    model keeps writing in the language of the original. `lead` replaces those words:
+    the original's own opening («Uno de los problemas más importantes…») ties the model
+    to the stock sentence a detector flags; another opening («Desde la») frees it."""
+    lead = lead or " ".join(paragraph.split()[:lead_words])
     prompt = f"<source_text>\n{paragraph.strip()}\n</source_text>\n\n<target_text>\n{lead}"
     return prompt, lead
 
@@ -102,8 +104,8 @@ def llama_binary():
     return None
 
 
-def rewrite_paragraph(paragraph, threads=4, temperature=1.0):
-    prompt, lead = build_prompt(paragraph)
+def rewrite_paragraph(paragraph, threads=4, temperature=1.0, lead=None):
+    prompt, lead = build_prompt(paragraph, lead=lead)
     # The prompt goes in a UTF-8 file and not on the command line: on Windows accents
     # and quotes get mangled when passed as an argument.
     with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".txt", delete=False) as fh:
@@ -164,6 +166,40 @@ def copied_share(original, rewritten, run=COPY_RUN):
     return sum(m.size for m in sm.get_matching_blocks() if m.size >= run) / max(1, len(b))
 
 
+QUOTE = re.compile(r'["“«]([^"”»]{12,})["”»]')
+REFERENCE = re.compile(r"\(([^()]*\b(?:[ivxlc]+|\d+)\b[^()]*)\)", re.I)
+
+
+def citation_problem(original, rewritten):
+    """A quotation of the original that is no longer verbatim, or a reference in
+    brackets the original never had («(De Anima, libro i, cap. vi)»). HIP did both on a
+    test essay; a changed quote or an invented source is worse than any detector score."""
+    norm = lambda s: " ".join(s.lower().split()).strip(" .,;:")  # noqa: E731
+    have = norm(rewritten)
+    for q in QUOTE.findall(original):
+        if norm(q) not in have:
+            return "(quote changed)"
+    known = {norm(r) for r in REFERENCE.findall(original)}
+    for r in REFERENCE.findall(rewritten):
+        if norm(r) not in known:
+            return "(invented reference)"
+    return None
+
+
+def acceptable(p, r, wanted, concepts, max_copied):
+    """(problem, copied share) for one try: problem is None when the try can be used."""
+    if len(r.split()) < 0.6 * len(p.split()) or len(r.split()) > 1.6 * len(p.split()) + 10:
+        return "(truncated or too long)", 0.0
+    missing = wanted - concepts_in(r, concepts)
+    if missing:
+        return sorted(missing)[0], 0.0
+    problem = citation_problem(p, r)
+    if problem:
+        return problem, 0.0
+    share = copied_share(p, r)
+    return ("(copied)" if share > max_copied else None), share
+
+
 def is_title(p):
     return len(p.split()) <= 12 and not p.rstrip().endswith((".", "!", "?", "…", ":"))
 
@@ -182,7 +218,22 @@ def main():
                     help="CPU threads (4)")
     ap.add_argument("--only", help="redo only these paragraphs (e.g. 7,11) of an existing output, "
                     "from the original, keeping the others and their hand fixes")
+    ap.add_argument("--lead", help="opening words for the rewritten paragraphs instead of the "
+                    "original's first two (e.g. \"Desde la\"); use it with --only")
+    ap.add_argument("--temperature", type=float, default=1.0,
+                    help="sampling temperature (1.0); 1.1-1.2 gives more varied candidates")
+    ap.add_argument("--candidates", type=int, metavar="N",
+                    help="with --only: write N acceptable versions of each paragraph to "
+                    "<output>.candidates/ instead of changing the output")
+    ap.add_argument("--take", metavar="N=FILE",
+                    help="put the text of FILE in paragraph N of the output (no model needed)")
     args = ap.parse_args()
+
+    if args.take:
+        return take(args.original, args.output, args.take)
+    if args.candidates and not args.only:
+        print("ERROR: --candidates needs --only (which paragraphs)", file=sys.stderr)
+        return 2
 
     if not llama_binary():
         print("ERROR: llama.cpp is missing. " + HOW_TO_INSTALL_LLAMA, file=sys.stderr)
@@ -218,19 +269,20 @@ def main():
             output.append(p)
             continue
         wanted = concepts_in(p, concepts)
+        if args.candidates:
+            write_candidates(args, i, p, wanted, concepts)
+            output.append(kept[i - 1])
+            continue
         chosen, mostly_copied, lost = None, [], collections.Counter()
         for n in range(1, args.tries + 1):
-            r = restore_percent_signs(p, rewrite_paragraph(p, args.threads))
-            if len(r.split()) < 0.6 * len(p.split()) or len(r.split()) > 1.6 * len(p.split()) + 10:
-                lost["(truncated or too long)"] += 1
-                continue
-            missing = wanted - concepts_in(r, concepts)
-            if missing:
-                lost.update(missing)
-                continue
-            share = copied_share(p, r)
-            if share > args.max_copied:
+            r = restore_percent_signs(p, rewrite_paragraph(p, args.threads, args.temperature,
+                                                           args.lead))
+            problem, share = acceptable(p, r, wanted, concepts, args.max_copied)
+            if problem == "(copied)":
                 mostly_copied.append((share, r))
+                continue
+            if problem:
+                lost[problem] += 1
                 continue
             chosen = r
             break
@@ -246,6 +298,10 @@ def main():
         status = "unchanged" if chosen == p else f"done, try {n}" if n > 1 else "done"
         print(f"Paragraph {i} of {len(paragraphs)}: {status} ({time.time() - t0:.0f} s)", flush=True)
 
+    if args.candidates:
+        print(f"\nCandidates in {args.output}.candidates/ — the output was not changed. Measure them\n"
+              "joined and inside the whole text, then adopt one with --take N=FILE.")
+        return 0
     print(f"\nWritten: {args.output}")
     if untouched:
         print("WARNING: kept as the original, the concept they kept losing in brackets: "
@@ -256,6 +312,47 @@ def main():
     print("Next step: reread against the original and fix by hand what changed (HIP\n"
           "sometimes changes a detail, like «they clean» into «they wash the dishes»);\n"
           "then scripts/join.py.")
+    return 0
+
+
+def write_candidates(args, i, p, wanted, concepts):
+    """Up to N acceptable versions of paragraph i, each in its own file. A detector can
+    score two samples of the same paragraph 0% and 100%; measuring several and keeping the
+    one that passes adds no chat fingerprint, since the same base model wrote them all."""
+    folder = args.output + ".candidates"
+    os.makedirs(folder, exist_ok=True)
+    found, tries = 0, 0
+    while found < args.candidates and tries < args.candidates * args.tries:
+        tries += 1
+        r = restore_percent_signs(p, rewrite_paragraph(p, args.threads, args.temperature, args.lead))
+        problem, share = acceptable(p, r, wanted, concepts, args.max_copied)
+        if problem:
+            continue
+        found += 1
+        path = os.path.join(folder, f"p{i:02d}-{found}.txt")
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(r + "\n")
+        print(f"Paragraph {i}: {path} (copied {share:.0%})", flush=True)
+    if found < args.candidates:
+        print(f"Paragraph {i}: only {found} acceptable of {tries} tries", flush=True)
+
+
+def take(original, output, spec):
+    """Paragraph N of the output becomes the text of FILE; everything else stays."""
+    n, _, path = spec.partition("=")
+    if not n.isdigit() or not os.path.isfile(path):
+        print("ERROR: --take needs N=FILE with an existing FILE", file=sys.stderr)
+        return 2
+    with open(output, encoding="utf-8") as fh:
+        paragraphs = [x.strip() for x in re.split(r"\n\s*\n", fh.read()) if x.strip()]
+    if not 1 <= int(n) <= len(paragraphs):
+        print(f"ERROR: {output} has {len(paragraphs)} paragraphs", file=sys.stderr)
+        return 2
+    with open(path, encoding="utf-8") as fh:
+        paragraphs[int(n) - 1] = " ".join(fh.read().split())
+    with open(output, "w", encoding="utf-8") as fh:
+        fh.write("\n\n".join(paragraphs) + "\n")
+    print(f"Paragraph {n} of {output} now comes from {path}")
     return 0
 
 

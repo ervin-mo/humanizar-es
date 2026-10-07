@@ -155,6 +155,14 @@ class Join(unittest.TestCase):
         for p in join.join_text(par, pauses=2, lang="es").split(". "):
             self.assertGreater(len(re.findall(r"\w+", p)), 6, p)  # no sentence left alone
 
+    def test_pauses_join_pero_without_a_double_connector(self):
+        par = ("El ser es y no cambia nunca. El no-ser no es ni se piensa. Pero Heráclito "
+               "dijo lo contrario. Todo fluye para él. Nada permanece igual. El río cambia.")
+        for seed in (7, 11, 23):
+            out = join.join_text(par, pauses=1, seed=seed, lang="es")
+            self.assertNotIn("y pero", out)
+            self.assertTrue(", pero Heráclito" in out or ". Pero Heráclito" in out, out)
+
     def test_detects_the_language(self):
         self.assertEqual(join.detect_language(read(ORIGINAL)), "es")
         self.assertEqual(join.detect_language(read(ORIGINAL_EN)), "en")
@@ -297,6 +305,82 @@ class Rewrite(unittest.TestCase):
             r = run(sys.executable, script("rewrite.py"), src, "-o", out, "--only", "2", env=env)
             self.assertEqual(r.returncode, 2)
             self.assertIn("same count", r.stderr)
+
+    def test_lead_replaces_the_opening_words(self):
+        prompt, lead = rewrite.build_prompt("Uno de los problemas más importantes.", lead="Desde la")
+        self.assertEqual(lead, "Desde la")
+        self.assertTrue(prompt.endswith("<target_text>\nDesde la"))
+        self.assertEqual(rewrite.build_prompt("Uno de los problemas.")[1], "Uno de")
+
+    def test_citation_problem(self):
+        o = ('Aristóteles: "aquello que está en potencia no puede actualizarse por sí mismo" '
+             '(Física, III, 1). La bellota (el fruto de la encina).')
+        ok = ('Escribe: "aquello que está en potencia no puede actualizarse por sí mismo" '
+              '(Física, III, 1). La bellota (fruto de la encina).')
+        self.assertIsNone(rewrite.citation_problem(o, ok))
+        self.assertEqual(rewrite.citation_problem(o, ok.replace("aquello que", "la que")),
+                         "(quote changed)")
+        self.assertEqual(rewrite.citation_problem(o, ok.replace("(Física, III, 1)",
+                                                                "(De Anima, libro i, cap. vi)")),
+                         "(invented reference)")
+
+    def _echo_llama(self, tmp):
+        """A fake llama that writes back a different, faithful version each call."""
+        for f in (rewrite.BASE, rewrite.ADAPTER):
+            open(os.path.join(tmp, f), "w").close()
+        fake = os.path.join(tmp, "echo_llama.py")
+        calls = os.path.join(tmp, "calls")
+        with open(fake, "w", encoding="utf-8") as fh:
+            fh.write(
+                "import os, sys\n"
+                "args = sys.argv[1:]\n"
+                "prompt = open(args[args.index('-f') + 1], encoding='utf-8').read()\n"
+                "lead = prompt.split('<target_text>\\n')[1]\n"
+                f"c = {calls!r}\n"
+                "n = int(open(c).read()) + 1 if os.path.exists(c) else 1\n"
+                "open(c, 'w').write(str(n))\n"
+                "words = ['la semilla crece despacio', 'el árbol nace de la semilla',\n"
+                "         'de la semilla sale un árbol']\n"
+                "body = ' ' + words[n % 3] + ' y el lead fue ' + lead.replace(' ', '_') + ' en la vuelta ' + str(n) + ' del bosque.'\n"
+                "sys.stdout.buffer.write((body + '\\n</target_text>').encode('utf-8'))\n")
+        return fake
+
+    def test_candidates_are_written_and_take_adopts_one(self):
+        text = ("Uno de los problemas: la semilla se convierte en árbol con el tiempo y crece.\n\n"
+                "La semilla crece y se vuelve un árbol grande con los años del bosque.\n")
+        with tempfile.TemporaryDirectory() as tmp:
+            fake = self._echo_llama(tmp)
+            src, out = os.path.join(tmp, "in.txt"), os.path.join(tmp, "out.txt")
+            with open(src, "w", encoding="utf-8") as fh:
+                fh.write(text)
+            with open(out, "w", encoding="utf-8") as fh:
+                fh.write("Primero, ya corregido.\n\nSegundo, ya corregido.\n")
+            env = dict(os.environ, HUMANIZE_MODEL_DIR=tmp, HUMANIZE_LLAMA=fake)
+            r = run(sys.executable, script("rewrite.py"), src, "-o", out, "--only", "1",
+                    "--candidates", "3", "--lead", "Desde la", "--threads", "1", env=env)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            folder = out + ".candidates"
+            files = sorted(os.listdir(folder))
+            self.assertEqual(files, ["p01-1.txt", "p01-2.txt", "p01-3.txt"])
+            first = read(os.path.join(folder, files[0]))
+            self.assertTrue(first.startswith("Desde la "), first)
+            self.assertIn("Desde_la", first)  # the lead reached the prompt
+            self.assertEqual(read(out), "Primero, ya corregido.\n\nSegundo, ya corregido.\n")
+            r = run(sys.executable, script("rewrite.py"), src, "-o", out,
+                    "--take", "1=" + os.path.join(folder, files[1]), env=env)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            new = read(out).split("\n\n")
+            self.assertEqual(new[0], read(os.path.join(folder, files[1])).strip())
+            self.assertEqual(new[1].strip(), "Segundo, ya corregido.")
+
+    def test_candidates_need_only(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            fake = self._echo_llama(tmp)
+            env = dict(os.environ, HUMANIZE_MODEL_DIR=tmp, HUMANIZE_LLAMA=fake)
+            r = run(sys.executable, script("rewrite.py"), ORIGINAL, "-o",
+                    os.path.join(tmp, "x.txt"), "--candidates", "2", env=env)
+            self.assertEqual(r.returncode, 2)
+            self.assertIn("--only", r.stderr)
 
     def test_recognizes_titles(self):
         self.assertTrue(rewrite.is_title("Turismo y tecnología"))

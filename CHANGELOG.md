@@ -1,5 +1,26 @@
 # Changelog
 
+## 3.1.0 — October 7, 2026
+
+**ZeroGPT passes.** The same 1,990-word essay now scores **0% in ZeroGPT, 0% and 0% in
+Grammarly and 0% AI / 98% human in GPTZero**, keeping 24 of 24 concepts and its two
+quotations verbatim. A fourth stage, selection, was added after taking ZeroGPT apart:
+it scores sentence by sentence and weighs by words, so rhythm alone made it worse
+(34% → 52%), and the base model gives a different version of a paragraph each run.
+
+- `rewrite.py --candidates N --only K`: N acceptable versions of each listed paragraph in
+  `<output>.candidates/`, without touching the output; `--take K=FILE` adopts one.
+- `rewrite.py --lead "Desde la"`: other opening words. The original's first two words
+  («Uno de los problemas…») made the model rebuild the stock sentence detectors flag.
+- `rewrite.py --temperature` (1.0 by default; 1.1 gives more varied candidates).
+- Fidelity guard: a try that changes a quotation of the original or adds a reference in
+  brackets the original never had is rejected (the model wrote «(De Anima, libro i,
+  cap. vi)» on a test essay).
+- `join.py --pauses`: a sentence that opens with «Pero» / "But" joins as «, pero»; it
+  used to produce «y pero».
+- Docs: the method in four stages, what each detector measures, the ZeroGPT experiments
+  (references/evidence.md, section 2c), and the selection step in the skill. 48 tests.
+
 ## 3.0.0 — October 7, 2026
 
 A pipeline for two audiences: Spanish and English, with docs in both. Same name and URL,

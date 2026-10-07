@@ -2,15 +2,17 @@ cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
 title: "humanizar-es: local AI text humanizer for Spanish and English"
 abstract: >-
-  Three-stage pipeline that rewrites AI-generated text (Spanish or English) with a local base
-  model without chat training (Qwen3-4B-Base + HIP adapter), checks concepts, negations and
-  copying against the original, and rebuilds the rhythm of each paragraph in blocks of uneven
-  length. Measured: 0% in Grammarly and 0% AI / 99% human in GPTZero on a 1,990-word essay.
+  Four-stage pipeline that rewrites AI-generated text (Spanish or English) with a local base
+  model without chat training (Qwen3-4B-Base + HIP adapter), guards fidelity (concepts,
+  quotations, invented references, copying), rebuilds the rhythm of each paragraph in blocks
+  of uneven length, and selects among several base-model candidates for the paragraphs a
+  detector still flags. Measured: 0% in Grammarly, 0% in ZeroGPT and 0% AI / 98% human in
+  GPTZero on a 1,990-word essay.
 authors:
   - alias: ervin-mo
 repository-code: "https://github.com/ervin-mo/humanizar-es"
 license: MIT
-version: 3.0.0
+version: 3.1.0
 date-released: 2026-10-07
 keywords:
   - AI humanizer

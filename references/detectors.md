@@ -27,8 +27,15 @@ free account has a few scans a day ("0 scans left" when they run out).
 
 ## ZeroGPT
 
-[zerogpt.com](https://www.zerogpt.com). No account, 15,000 characters. Reads "X% AI GPT".
-The recipe does not pass it yet.
+[zerogpt.com](https://www.zerogpt.com). No account, 15,000 characters. Reads "X% AI GPT"
+and highlights in yellow the sentences it flags: that is the list to regenerate.
+
+- **Deterministic:** the same text always gives the same score, so a change you see is
+  real.
+- **Sentence by sentence, weighed by words:** a long sentence with one textbook clause is
+  flagged whole.
+- **Measure the format you will hand in.** Headings and bibliography change the score.
+- **Brittle:** after any fix, measure again.
 
 ## Always with two controls
 

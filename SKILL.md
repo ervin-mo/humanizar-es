@@ -1,8 +1,8 @@
 ---
 name: humanizar-es
-description: Rewrites AI-generated text (Spanish or English) so AI detectors read it as human (0% in Grammarly, 0% AI / 99% human in GPTZero on the latest test essay), without changing what it says and without adding typos. Runs locally with no API or cost - a base model without chat training rewrites (rewrite.py), concepts and copying are checked (check.py), and the rhythm of each paragraph is rebuilt in blocks of uneven length (join.py --pauses 2). Use when asked to "humanize" text, "make it not detectable as AI", "pass Grammarly", "remove AI tells", "make it not sound like ChatGPT", or in Spanish "humaniza este texto", "que no lo detecte el detector de IA", "que no suene a ChatGPT".
+description: Rewrites AI-generated text (Spanish or English) so AI detectors read it as human - 0% in Grammarly, 0% in ZeroGPT and 0% AI / 98% human in GPTZero on the same test essay - without changing what it says and without adding typos. Runs locally with no API or cost, in four measured stages - a base model without chat training rewrites (rewrite.py), fidelity is guarded (concepts, quotes, invented references, copying; check.py), the rhythm is rebuilt in blocks of uneven length (join.py --pauses 2), and paragraphs a detector still flags are regenerated as candidates and selected (rewrite.py --candidates, --lead, --take). Use when asked to "humanize" text, "make it not detectable as AI", "pass Grammarly", "remove AI tells", "make it not sound like ChatGPT", or in Spanish "humaniza este texto", "que no lo detecte el detector de IA", "que no suene a ChatGPT".
 metadata:
-  version: "3.0.0"
+  version: "3.1.0"
   languages: en, es
   evidence: references/evidence.md
 ---
@@ -10,8 +10,9 @@ metadata:
 # Humanize AI text, locally
 
 You receive a text written with AI and give it back **saying exactly the same thing**, but
-without Grammarly's AI detector recognizing it as AI. You are not a paraphraser or a
-copy editor: two scripts do the work, and your job is to prepare them, review and verify.
+without AI detectors (Grammarly, GPTZero, ZeroGPT) recognizing it as AI. You are not a
+paraphraser or a copy editor: the scripts do the writing, and your job is to prepare them,
+review, measure and select.
 Talk to the user in their language.
 
 ## Why it works (read this so you don't sabotage it)
@@ -26,6 +27,15 @@ Talk to the user in their language.
 4. **Copied stretches of the original are AI text.** Never paste a sentence of the
    original back, and never fix more than three words by hand: regenerate instead
    (`--only`). Measured: 3% with bigger hand fixes, 0% after regenerating.
+5. **ZeroGPT scores sentence by sentence and weighs by words.** One textbook clause inside
+   a long joined sentence flags the whole sentence, so rhythm alone can make ZeroGPT worse
+   (34% → 52% on a test essay). What fixes it is **selection**: the base model gives a
+   different version each run, so regenerate the flagged paragraphs as candidates and keep
+   the one that passes, measured in the whole document (step 9). That essay ended at 0% in
+   ZeroGPT, Grammarly and GPTZero at once.
+6. **Stock openings come from the original.** The model starts each paragraph with the
+   original's first two words; if they are «Uno de los problemas…» or «Aristóteles
+   distingue…», it rebuilds the stock sentence. `--lead "Desde la"` gives it another start.
 
 In the commands, `<skill>` is the folder containing this `SKILL.md`. Texts go in the
 user's working folder, not inside the skill. **On Windows** type `python` (or `py`) where
@@ -148,10 +158,42 @@ join again.
 python3 <skill>/scripts/check.py 00-original.txt 02-final.txt --concepts concepts.txt
 ```
 
-Deliver `02-final.txt`, the fidelity table and the list of fixes. Warn that sentences stay
-longer than in a polished essay: that's part of what passes the detector. If the text is
-over ~1,400 words, tell the user to measure it in Grammarly in two halves. Remind the user to measure
-in their detector **together with a text of their own written without AI**.
+Deliver `02-final.txt`, the fidelity table and the list of fixes, **in the format the
+user will hand in** (headings, bibliography): the context changes ZeroGPT's score. Warn
+that sentences stay longer than in a polished essay. If the text is over ~1,400 words, tell
+the user to measure it in Grammarly in two halves; GPTZero's free scan reads 10,000
+characters. Ask them to measure in their detector **together with a text of their own
+written without AI**, and to tell you what is still flagged.
+
+### 9. Select, for what a detector still flags
+
+ZeroGPT and Grammarly highlight the sentences they flag. For each flagged paragraph:
+
+```bash
+python3 <skill>/scripts/rewrite.py 00-original.txt -o 01-rewritten.txt --concepts concepts.txt \
+        --only 4 --candidates 6 --temperature 1.1
+```
+
+If the paragraph starts with a stock opening, add `--lead` with two other words that fit
+the paragraph («Desde la», «La potencia», «Para Aristóteles»). Candidates land in
+`01-rewritten.txt.candidates/`; tries that lose a concept, change a quote, invent a
+reference or copy the original are already discarded.
+
+1. **Read each candidate against the original** and drop any that loses an idea, even if
+   no concept is missing (one dropped a whole sentence about the contradiction between two
+   authors).
+2. **Have the user measure the survivors joined, inside the whole text**, not alone: a
+   paragraph that scores 0% alone can be flagged in context, and the other way round.
+3. Adopt the one that passes and join again:
+
+```bash
+python3 <skill>/scripts/rewrite.py 00-original.txt -o 01-rewritten.txt --take 4=01-rewritten.txt.candidates/p04-2.txt
+python3 <skill>/scripts/join.py 01-rewritten.txt -o 02-final.txt --concepts concepts.txt --pauses 2
+```
+
+4. **Any fix to an adopted paragraph gets measured again.** ZeroGPT is deterministic but
+   brittle: a one-word fix took a paragraph from 0% to 62%. If a fix breaks it, try the
+   next candidate instead of forcing the fix.
 
 ## Don't
 
@@ -159,16 +201,18 @@ in their detector **together with a text of their own written without AI**.
   That adds the fingerprint this recipe removes.
 - **Add typos, remove commas or add double spaces.** Not needed: double spaces moved
   nothing (84% → 84%), and joining sentences lowered the score more than any error.
-- **Run `rewrite.py` twice.** The second pass drifts from the meaning and needs more fixes
-  (in testing it ended at 91%).
+- **Feed `rewrite.py` its own output.** A second pass drifts from the meaning (in testing
+  it ended at 91%). Candidates are different: each is a fresh first pass from the original.
+- **Accept a candidate that changes a quotation or adds a source.** The guard catches the
+  usual cases; read for the rest.
 - **Use the GPU without asking.** `rewrite.py` runs on CPU on purpose.
 
 ## Limits (read before promising anything)
 
-1. **Measured on Grammarly and GPTZero**, Spanish essays: Grammarly 0% on three of four
-   (10% on an older run); GPTZero 0% AI / 99% human on the one measured. **ZeroGPT does not
-   pass yet** (49.8%), and English has not been measured. If the user needs another
-   detector, tell them before starting. Never promise a number.
+1. **Measured on Grammarly, GPTZero and ZeroGPT**, Spanish essays: Grammarly 0% on three of
+   four (10% on an older run); one essay at 0% in all three at once, ZeroGPT only after
+   selection (step 9). English has not been measured. If the user needs another detector,
+   tell them before starting. Never promise a number.
 2. **Detectors flag human text too** and change without notice. Hence the human control.
 3. **Only English and Spanish** have joining rules. Other languages: the rewrite may work,
    joining won't.
@@ -183,9 +227,10 @@ risk before proceeding.
 ## Files
 
 - `scripts/install_model.py` — downloads and verifies the model (once)
-- `scripts/rewrite.py` — step 5: rewrite with the local base model
+- `scripts/rewrite.py` — steps 5, 6 and 9: rewrite with the local base model, guard
+  fidelity, `--only`, `--candidates`, `--lead`, `--take`
 - `scripts/join.py` — step 7: rebuild the rhythm of each paragraph
 - `scripts/check.py` — concepts and negations, original against version
 - `references/evidence.md` — every measurement
-- `references/detectors.md` — how to measure in Grammarly, and its limits
+- `references/detectors.md` — how to measure in Grammarly, GPTZero and ZeroGPT, with controls
 - `examples/` — worked examples in English and Spanish

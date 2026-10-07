@@ -177,6 +177,9 @@ def join_with_pauses(paragraph, proper, pauses, rnd, doubtful=None, lang="es"):
                 continue
             w = s.split()[0].strip(",;:")
             o = opener(s, lang)
+            if w in LANGUAGES[lang]["but"]:  # «Pero Heráclito…» joins as «, pero Heráclito…»
+                out = out[:-1] + ", " + w.lower() + " " + s[len(s.split()[0]) + 1:]
+                continue
             if o:
                 glue = "; "
             else:

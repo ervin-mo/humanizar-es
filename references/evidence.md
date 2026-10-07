@@ -74,6 +74,56 @@ What it shows:
 3. **Logical connectors** («sin embargo», «por eso», «es decir»…), one or two words per
    swap, did not raise the score.
 
+## 2c. ZeroGPT: what it measures, and how selection got it to 0% (fourth essay)
+
+ZeroGPT was measured through the same service its web page uses, which returns the score
+and the list of flagged sentences. **It is deterministic**: the same text gave the same
+score every time (100% and 100%, 52.4% and 52.4%). Controls in every session: Unamuno's
+prologue (1,685 words) and the author's chat messages, both 0%.
+
+**One change at a time, same essay:**
+
+| Version | ZeroGPT |
+|---|---|
+| The AI original (whole) | 34.3% |
+| Rewritten by the base model, sentences unjoined | 33.9% |
+| … every sentence of each paragraph joined | 44.0% |
+| … `--pauses 2` (the version at 0% in Grammarly) | 52.4% |
+| … the same, with headings, as handed in | 45.3% |
+| Unamuno, joined with `join.py` (full and with pauses) | 0% and 0% |
+
+What it shows:
+
+1. **ZeroGPT scores sentence by sentence and weighs by words** (`aiWords / textWords`).
+   Joining does not make human text look like AI, but a long sentence that contains one
+   textbook clause is flagged whole, so joining amplifies what is left of the original.
+2. **The base-model rewrite alone does not move ZeroGPT** (34.3% → 33.9%). It flags
+   fluent, definitional sentences («La potencia activa es la facultad de…»).
+3. **The same paragraph sampled several times gives very different scores.** Paragraph
+   «potencia activa y pasiva», 8 samples, unjoined: 29% to 96%; joined: 100% in all.
+   «Conclusión», 8 samples, joined: 0% in three, 58–100% in the rest.
+4. **The stock opening comes from our own prompt.** `rewrite.py` starts each paragraph with
+   the original's first two words. With «Aristóteles distingue…», 22 candidates of that
+   paragraph scored 100% joined; starting with «La potencia» instead, the chosen candidate
+   scored 0% with three different pause layouts. The introduction, starting with «Uno de»,
+   was flagged in context with every candidate; with «Desde la», 0%.
+5. **Context changes the score.** A paragraph at 0% alone was flagged inside the document,
+   and the other way round; adding the bibliography moved one version from 0% to 10.2%. So
+   candidates were measured inside the whole document, with and without bibliography.
+6. **It is brittle.** Replacing «actus» with «acto» four times took a paragraph from 0% to
+   43%; a three-word grammar fix, from 0% to 62%. Every fix was measured again; when one
+   broke a paragraph, another candidate or a smaller fix was used.
+7. **Selection needs a person.** One candidate passed but dropped a whole sentence about
+   the contradiction between Parmenides and Heraclitus; another changed the quotation of
+   Aristotle and added «(De Anima, libro i, cap. vi)», a reference that does not exist.
+   Both were discarded; `rewrite.py` now rejects changed quotes and invented references.
+
+**Result:** 7 of 11 paragraphs replaced by selected candidates (two with another opening),
+24 of 24 concepts, both quotations of Aristotle verbatim. Measured by the author on the
+public sites: **ZeroGPT 0%** (whole text), **Grammarly 0% and 0%** (halves), **GPTZero 0% AI ·
+2% mixed · 98% human** (whole text, and the second half alone). 92 candidates were
+generated and more than 200 versions scored to get there.
+
 ## 3. Why a base model
 
 Xu et al. (2026), *Base Models Look Human To AI Detectors*
@@ -110,14 +160,15 @@ visible errors, and joining sentences gets there without them.
 
 ## 5. Other detectors
 
-Fourth essay, final version (`--pauses 2`). Every detector was checked in the same session
-with two controls: human texts (a 1914 prologue by Miguel de Unamuno, and the author's own
-chat messages, typos included) and the AI original.
+Fourth essay, the `--pauses 2` version, before selection (section 2c has the final one).
+Every detector was checked in the same session with two controls: human texts (a 1914
+prologue by Miguel de Unamuno, and the author's own chat messages, typos included) and the
+AI original.
 
 | Detector | Human controls | AI original | **Final** | Valid? |
 |---|---|---|---|---|
 | **GPTZero** (free account, first 10,000 characters) | — | 37% AI · 32% mixed · 31% human | **0% AI · 1% mixed · 99% human** | yes |
-| **ZeroGPT** | 0% and 0% | 44.9% | **49.8%** | yes: the recipe does not pass it yet |
+| **ZeroGPT** | 0% and 0% | 44.9% | **49.8%** | yes; 0% after selection (section 2c) |
 | QuillBot | 0% | 0% | 0% | no: it does not flag the AI original |
 | GPTZero, from a browser after ~6 scans | 100% AI (Unamuno and the author's messages) | 100% | 100% | no: throttled, it flags everything |
 
@@ -134,6 +185,6 @@ reads as "the new version is worse".
 
 - Four essays, all in Spanish. We don't yet know how well it carries over to emails,
   marketing, technical writing or English.
-- ZeroGPT does not pass yet: it weighs something other than the rhythm.
+- ZeroGPT passes only with selection (section 2c), which costs model runs and a person's reading.
 - One scan per version. Differences of a few points may be noise.
 - Detectors change; this is a snapshot of October 2026.

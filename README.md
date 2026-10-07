@@ -10,88 +10,109 @@
 ![humanizar-es: make AI text read as human, on your own computer, for free](assets/vista-previa.png)
 
 **humanizar-es** takes a text written with ChatGPT, Claude, Gemini or DeepSeek and gives
-it back **saying the same thing**, in prose that AI detectors read as human: **0% in
-Grammarly and 0% AI / 99% human in GPTZero** on our latest test essay. It runs on your own
-computer with an open model: no API, no keys, no per-word fees, and your text never leaves
-your machine. Use it by hand or as a *skill* for your coding agent (Claude Code, Codex,
-OpenCode, Antigravity).
+it back **saying the same thing**, in prose that the three detectors we measured read as
+human: **0% in Grammarly, 0% in ZeroGPT and 0% AI / 98% human in GPTZero**, on the same
+1,990-word essay that started at 45%. It runs on your own computer with an open model: no
+API, no keys, no per-word fees, and your text never leaves your machine. Use it by hand or
+as a *skill* for your coding agent (Claude Code, Codex, OpenCode, Antigravity).
 
-It is not a synonym spinner and it does not plant typos. It is a three-stage pipeline built
-from controlled experiments, one variable at a time, each checked against a human-written
-control.
+It is not a synonym spinner, a "rewrite it in a human tone" prompt, or a typo generator.
+It is a four-stage pipeline, and every stage exists because a controlled experiment showed
+what a detector actually measures: one variable at a time, the same text in every
+condition, and a human-written control and the AI original in every session.
 
 ---
 
 ## Results
 
-| AI-generated essay (Spanish) | Grammarly, before | **Grammarly, after** | GPTZero, after |
+| AI-generated essay (Spanish) | Grammarly | ZeroGPT | GPTZero |
 |---|---|---|---|
-| Aristotle: act and potency · 1,990 words | 45% | **0% and 0%** (two halves) | **0% AI · 99% human** |
-| Tourism and AI in Chiapas · 1,150 words | 77% | **0%** | not measured |
-| An AI classification model · 690 words | not measured | **0%** | not measured |
-| Dragon Ball and its generation · 910 words | 84% | **10%** | not measured |
+| **Aristotle: act and potency** · 1,990 words · before | 45% | 45.3% | 37% AI |
+| **Aristotle: act and potency** · **after** | **0% and 0%** | **0%** | **0% AI · 98% human** |
+| Tourism and AI in Chiapas · 1,150 words | 77% → **0%** | — | — |
+| An AI classification model · 690 words | → **0%** | — | — |
+| Dragon Ball and its generation · 910 words | 84% → **10%** | — | — |
 
-*October 2026. Every key name, term and figure was checked after each rewrite (24 of 24 in
-the first essay). GPTZero read the first 10,000 characters. The Dragon Ball essay was run
-with an earlier version of the pipeline.*
+*October 2026. The first essay keeps 24 of 24 key names, terms and figures, and its two
+quotations of Aristotle word for word. Grammarly reads ~1,400 words, so it was measured in
+halves. The Dragon Ball essay ran on an earlier version of the pipeline.*
 
 ---
 
 ## The method
 
 ```
- original ─► 1. rewrite.py ──► 2. fidelity control ──► 3. join.py ──► final text
-             base model,        concepts, negations,     rhythm: blocks of
-             no chat training   copy guard, ≤3-word      uneven length, cut
-                                hand fixes               where the idea turns
+ original ─► 1. rewrite ──► 2. fidelity ──► 3. rhythm ──► 4. selection ──► final
+             base model     concepts,       blocks of      candidates,
+             without chat   quotes, copy,   uneven         measured in the
+             training       ≤3-word fixes   length         whole document
 ```
+
+### What the detectors measure
+
+Three detectors, three different signals. The pipeline exists because each one was
+taken apart with experiments:
+
+| Detector | What it reacts to | What does **not** move it |
+|---|---|---|
+| **GPTZero** | the fingerprint of chat training (instruction tuning, RLHF) | — (not yet taken apart) |
+| **Grammarly** | rhythm: sentences of even length, each closed by its own period | double spaces (typos do move it, but leave visible errors) |
+| **ZeroGPT** | individual sentences that read like a textbook; it scores **sentence by sentence and weighs by words** | joining sentences of a human text (Unamuno joined: 0%) |
 
 ### 1. Remove the chat-training fingerprint
 
-AI detectors mostly recognize the *fingerprint of chat training* (instruction tuning and
-RLHF), not "AI" in general. Everything a chat model writes carries it, even when asked to
-"sound human". Xu et al. (2026), [*Base Models Look Human To AI Detectors*](https://arxiv.org/abs/2605.19516),
-measured it: on GPTZero and Pangram, text from a **base** model scored 97–99% human and
-the same model after chat training 17–30%. Our own tests agree: every rewrite we tried
-with a chat model stayed between 64% and 100% in Grammarly.
+Xu et al. (2026), [*Base Models Look Human To AI Detectors*](https://arxiv.org/abs/2605.19516),
+showed that text from a **base** model scores 97–99% human on GPTZero and Pangram, and the
+same model after chat training 17–30%. Our tests agree: every rewrite we tried with a chat
+model stayed between 64% and 100% in Grammarly. `rewrite.py` paraphrases with
+Qwen3-4B-Base plus the paper's HIP adapter, through llama.cpp, on your CPU.
 
-`rewrite.py` paraphrases with Qwen3-4B-Base plus the paper's HIP adapter, through
-llama.cpp, on your CPU. Each paragraph gets one pass (more passes drift from the meaning)
-and is rejected and retried when it:
+### 2. Keep it faithful, without putting the fingerprint back
+
+Each paragraph gets one pass, and a try is rejected and retried when it:
 
 - loses a concept you listed (names, terms, figures, key negations);
-- comes out truncated or runs away;
-- **copies the original**: more than 60% of its words in runs of 8+ words copied verbatim.
-  A copied stretch is still the original AI text, and detectors flag it.
+- **changes a quotation** of the original or **adds a reference** the original never had
+  (on a test essay the model wrote «(De Anima, libro i, cap. vi)», which does not exist);
+- **copies the original**: more than 60% of its words in runs of 8+ identical words;
+- comes out truncated or runs away.
 
-### 2. Keep it faithful without putting the fingerprint back
+`check.py` then compares concepts and negations, and a person fixes **one to three words**
+at most. Anything bigger is regenerated by the model (`--only`), never written by hand and
+never pasted back from the original: hand fixes of four or more words kept half an essay
+at 3% in Grammarly; regenerating those paragraphs brought it to 0%.
 
-`check.py` compares the original and the rewrite: every concept, every negation. A person
-then rereads each paragraph and fixes **one to three words** at most. Anything bigger (a
-garbled sentence, an invented quote, a lost idea) is regenerated by the model with
-`rewrite.py --only N`, never written by hand and never pasted back from the original. This
-rule comes from a measurement: hand fixes of four or more words kept half of an essay at
-3%; regenerating those paragraphs brought it to 0%.
+### 3. Rebuild the rhythm
 
-### 3. Change the rhythm
+People write in bursts, some sentences long, some short. `join.py --pauses 2` leaves two or
+three periods per paragraph, in **blocks of uneven length** of at least two sentences,
+cutting first where a sentence already opens with a discourse marker («Sin embargo»,
+"For example", «Segundo»). Inside a block it links with "and" or ";". No content word is
+touched.
 
-Grammarly recognizes the rhythm of AI prose: sentences of even length, each closed by its
-own period. People write in bursts, some long, some short. `join.py` rebuilds that rhythm
-without touching a single word of content:
+### 4. Select by measurement
 
-- `--pauses 2` (recommended) leaves two or three periods per paragraph, in **blocks of
-  uneven length**, cutting first where a sentence already opens with a discourse marker
-  ("However", "For example", "Second"). Inside a block, sentences are linked with "and"
-  or ";". Every block keeps at least two sentences, so a near-copy of the original is never
-  left standing alone.
-- Then you may swap a link for a logical connector ("however", "therefore", "that is",
-  "on the other hand") where the relation is plain: one or two words per swap.
-- Without `--pauses`, every sentence of a paragraph is joined into one: the first version,
-  also at 0%, but harder to read.
+The base model is a sampler: the same paragraph comes out differently every time, and a
+detector can score two samples 0% and 100%. So the paragraphs a detector still flags are
+regenerated several times (`--candidates`), each candidate is joined and **measured inside
+the whole document** (context changes the score), and the one that passes is adopted
+(`--take`). All candidates come from the same base model, so selection adds no chat
+fingerprint. Two findings made this work:
 
-### What each piece is worth (one change at a time)
+- **The opening words matter.** To keep writing in Spanish, the model starts each paragraph
+  with the original's first two words. When those are a stock opening («Uno de los
+  problemas más importantes…», «Aristóteles distingue…»), the model rebuilds the stock
+  sentence and ZeroGPT flags it. Starting with other words (`--lead "Desde la"`) fixed it:
+  22 candidates of one paragraph with the original opening scored 100%; with another
+  opening, 0%.
+- **Every edit is measured again.** ZeroGPT is deterministic but brittle: a one-word fix
+  took a paragraph from 0% to 62%.
 
-| Version of the same essay | Grammarly |
+### The experiments behind each stage
+
+Same essay, one change at a time.
+
+| Grammarly | |
 |---|---|
 | Rewritten by the base model only | 84% |
 | … plus random double spaces | 84% |
@@ -100,22 +121,32 @@ without touching a single word of content:
 | … joining every sentence of each paragraph | **8%** |
 | The original, without the base model, joining every sentence | 57% |
 | Rewriting with a chat model (four different recipes) | 64–100% |
-| Base model + pauses, a sentence left alone between two periods | 6% |
-| **Base model + pauses, blocks of two or more sentences + 12 connectors** | **0% and 0%** |
+| Pauses, with a sentence left alone between two periods | 6% |
+| **Pauses, blocks of two or more sentences** | **0% and 0%** |
 
-Both stages are needed, and typos are not: punctuation noise barely moves the score, and
-the rhythm does. Every measurement: [`references/evidence.md`](references/evidence.md).
+| ZeroGPT (deterministic: the same text always gives the same score) | |
+|---|---|
+| The AI original | 34.3% |
+| Rewritten by the base model, sentences unjoined | 33.9% |
+| … all sentences joined | 44.0% |
+| … with pauses | 52.4% |
+| A human text (Unamuno, 1914), joined the same way | 0% |
+| **After selection: candidates measured in the whole document** | **0%** |
+
+The tension is real: Grammarly wants long sentences, ZeroGPT punishes a long sentence that
+contains one textbook clause. Rhythm alone cannot satisfy both; rhythm plus selection does.
+Every measurement: [`references/evidence.md`](references/evidence.md).
 
 ### How we measure
 
-- **Two controls in every session**: a human text (a 1914 prologue by Unamuno, and the
-  author's own chat messages, typos included) must come out human, and the AI original
+- **Two controls in every session**: a human text must come out human, and the AI original
   must come out as AI. A detector that fails either one does not count: QuillBot scored
-  the AI original 100% human, and GPTZero, after many scans from the same browser, scored
-  Unamuno 100% AI.
-- **The reference is re-measured in the same session**, never compared with a number
-  from hours before: detectors change and throttle without notice.
-- **Grammarly reads about 1,400 words**, so longer texts are measured in halves.
+  the AI original 100% human, and GPTZero, after many scans from one browser, scored a
+  1914 text 100% AI.
+- **The reference is re-measured in the same session**, never compared with a number from
+  hours before.
+- **The final format is the one measured**: with headings and bibliography, ZeroGPT can
+  give a different score than for the bare text.
 
 ---
 
@@ -129,10 +160,10 @@ cd humanizar-es
 python3 install.py          # on Windows: python install.py
 ```
 
-Open a new session and ask: **"humanize this text"** (or «humaniza este texto»). The
-skill tells the agent what to do: install what's missing (it asks before downloading the
-model), list with you what must not be lost, rewrite, show you every change, join and
-verify.
+Open a new session and ask: **"humanize this text"** (or «humaniza este texto»). The skill
+walks the agent through every stage: install what's missing (it asks before downloading the
+model), list with you what must not be lost, rewrite, show you every change, rebuild the
+rhythm, and select candidates for whatever your detector still flags.
 
 | Agent | Skills folder | Covered by `install.py`? |
 |---|---|---|
@@ -193,8 +224,26 @@ Don't ask ChatGPT to fix it: it puts back the fingerprint the base model removed
 python3 scripts/join.py rewritten.txt -o final.txt --concepts concepts.txt --pauses 2
 ```
 
-**5. Measure** in your detector, with a human text as control
-([`references/detectors.md`](references/detectors.md)).
+**5. Measure** the final text in your detector, in the format you will hand in, with a
+human text as control ([`references/detectors.md`](references/detectors.md)).
+
+**6. Select, for what is still flagged.** Generate candidates of those paragraphs, with
+other opening words if the paragraph starts with a stock phrase:
+
+```bash
+python3 scripts/rewrite.py my-text.txt -o rewritten.txt --concepts concepts.txt \
+        --only 4 --candidates 6 --lead "Desde la" --temperature 1.1
+```
+
+Join each candidate into the full text, measure, adopt the one that passes, and join again:
+
+```bash
+python3 scripts/rewrite.py my-text.txt -o rewritten.txt --take 4=rewritten.txt.candidates/p04-3.txt
+python3 scripts/join.py rewritten.txt -o final.txt --concepts concepts.txt --pauses 2
+```
+
+Reread the adopted paragraph against the original: passing a detector is worth nothing if
+it dropped an idea.
 
 Worked examples, with every hand fix listed, are in [`examples/`](examples/).
 
@@ -204,8 +253,8 @@ Worked examples, with every hand fix listed, are in [`examples/`](examples/).
 
 | | Rewrite | Rhythm | Check | Measured |
 |---|---|---|---|---|
-| **Español** | ✅ | ✅ «y», «;», «sin embargo»… | ✅ | ✅ four essays |
-| **English** | ✅ (the HIP adapter was trained in English) | ✅ "and", ";", "however"… | ✅ | not yet |
+| **Español** | ✅ | ✅ «y», «;», «pero»… | ✅ | ✅ four essays, three detectors |
+| **English** | ✅ (the HIP adapter was trained in English) | ✅ "and", ";", "but"… | ✅ | not yet |
 
 Other languages: the rewrite may work (the base model is multilingual), but `join.py`
 only knows Spanish and English connectors. Adding one is a small dictionary in
@@ -215,13 +264,14 @@ only knows Spanish and English connectors. Adding one is a small dictionary in
 
 | Detector | Status |
 |---|---|
-| **Grammarly** | ✅ 0% on three of four essays; 10% on the fourth |
-| **GPTZero** | ✅ 0% AI · 99% human on the essay we measured |
-| **ZeroGPT** | ❌ not yet: 44.9% on the original, 49.8% after. It weighs something else |
+| **Grammarly** | ✅ 0% on three of four essays (10% on one run with an older version) |
+| **GPTZero** | ✅ 0% AI · 98% human |
+| **ZeroGPT** | ✅ 0%, with stage 4 (selection); 45.3% without it |
 | QuillBot | not usable in Spanish: it scored the AI original 100% human |
 
-Each detector runs its own model, so a version that passes one may not pass another.
-Measurements on more detectors are the contribution we need most.
+Each detector runs its own model, so a version that passes one may not pass another; the
+first essay passes all three at once. Measurements on more detectors and more kinds of
+text are the contribution we need most.
 
 ---
 
@@ -231,19 +281,21 @@ Measurements on more detectors are the contribution we need most.
 Free and keyless. The model downloads once and runs on your computer.
 
 **Does it change what my text says?**
-It shouldn't: `rewrite.py` rejects tries that lose a concept, `check.py` checks concepts
-and negations, and you review every paragraph. In our tests the final texts kept every
-listed concept.
+It is built not to: tries that lose a concept, change a quote or invent a reference are
+rejected, `check.py` compares concepts and negations, and you reread every paragraph.
 
 **Does it add typos on purpose, like other "humanizers"?**
-No. It changes rhythm, not spelling.
+No. It changes who wrote the sentences and their rhythm, not the spelling.
 
 **Are the results consistent?**
-Three of the four essays reached 0% in Grammarly (the fourth, 10%, ran on an earlier
-version), and the latest one also passed GPTZero.
-The pipeline is deterministic where it can be (the joining is seeded), it refuses copied
-output, and 43 tests run on every change on Ubuntu, macOS and Windows. Detectors are not
-deterministic over time, which is why we always measure with controls.
+Three of four essays reached 0% in Grammarly, and the latest one passes Grammarly, GPTZero
+and ZeroGPT at once. The pieces that can be deterministic are (the joining is seeded;
+ZeroGPT gives the same score for the same text), output that copies the original is
+refused, and 48 tests run on every change on Ubuntu, macOS and Windows. Detectors drift
+over time, which is why every session carries controls.
+
+**Does the selection step send my text anywhere?**
+The tool never does. Measuring is your step, in your detector, as with any text you check.
 
 **Do I need a GPU?**
 No. It runs on CPU, at low priority, so your computer stays usable.
@@ -252,12 +304,12 @@ No. It runs on CPU, at low priority, so your computer stays usable.
 
 ## Limits
 
-1. **Measured in Grammarly and GPTZero, on Spanish essays.** ZeroGPT does not pass yet;
-   English has not been measured.
-2. **Rereading is not optional.** The base model sometimes changes a detail, invents a
-   quote or flips an idea. The pipeline catches lost concepts; a person catches the rest.
-3. **Long blocks.** With `--pauses 2` paragraphs read naturally, but sentences stay longer
-   than in a polished essay.
+1. **Spanish essays, three detectors.** English has not been measured, nor emails,
+   marketing or technical writing.
+2. **Rereading is not optional.** The base model sometimes changes a detail or flips an
+   idea. The pipeline catches lost concepts, changed quotes and invented references; a
+   person catches the rest.
+3. **Selection costs time.** Each candidate is a model run (30–60 s per paragraph on an M4).
 4. **Detectors change.** This is a snapshot of October 2026.
 
 ## Responsible use
@@ -276,12 +328,12 @@ humanizar-es/
 ├── install.py               installs the skill (install.sh: shortcut for macOS/Linux)
 ├── scripts/
 │   ├── install_model.py     downloads the model (once)
-│   ├── rewrite.py           stage 1: rewrite with the local base model
+│   ├── rewrite.py           stages 1, 2 and 4: rewrite, guard fidelity, candidates
 │   ├── check.py             stage 2: concepts and negations, original vs rewrite
 │   └── join.py              stage 3: rebuild the rhythm of each paragraph
 ├── examples/                worked examples in Spanish and English
 ├── references/              every measurement, and how to measure
-└── tests/                   43 tests on Ubuntu, macOS and Windows (no network, no model)
+└── tests/                   48 tests on Ubuntu, macOS and Windows (no network, no model)
 ```
 
 The old script names (`hip.py`, `unir.py`, `verificar_fidelidad.py`, `instalar_hip.py`)
@@ -290,8 +342,8 @@ still work.
 ## Contributing
 
 What's missing most is **evidence**: the pipeline measured on more texts, more languages
-and more detectors, always with a human control. Open an issue or a PR with the numbers in
-[`references/evidence.md`](references/evidence.md).
+and more detectors, always with a human control and the AI original. Open an issue or a
+PR with the numbers in [`references/evidence.md`](references/evidence.md).
 
 ```bash
 python3 -m unittest discover -s tests -v
