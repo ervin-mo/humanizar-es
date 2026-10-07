@@ -31,6 +31,8 @@ import rewrite  # noqa: E402
 
 
 def run(*args, **kw):
+    # The child writes UTF-8 too: on Windows it would write cp1252 and «» or ñ would break.
+    kw["env"] = dict(kw.get("env") or os.environ, PYTHONIOENCODING="utf-8")
     return subprocess.run(args, capture_output=True, text=True, encoding="utf-8",
                           cwd=ROOT, **kw)
 
