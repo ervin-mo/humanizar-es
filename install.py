@@ -1,21 +1,24 @@
 #!/usr/bin/env python3
-"""Instala la skill humanizar-es para tus agentes de programacion.
-Funciona igual en macOS, Linux y Windows (sin paquetes extra).
+"""Installs the humanizar-es skill for your coding agents.
+Works the same on macOS, Linux and Windows (no extra packages).
 
-Por defecto instala en las dos carpetas que cubren a todos:
-  ~/.claude/skills   Claude Code (y OpenCode, que tambien la lee)
-  ~/.agents/skills   Codex, OpenCode, Antigravity (agy) y DeepSeek Harness (dsh)
+By default it installs into the two folders that cover everyone:
+  ~/.claude/skills   Claude Code (and OpenCode, which reads it too)
+  ~/.agents/skills   Codex, OpenCode, Antigravity (agy) and DeepSeek Harness (dsh)
 
-uso:
-  python3 install.py                       # las dos carpetas de arriba
-  python3 install.py --agente codex        # solo un agente: claude, codex, opencode,
-                                           #   antigravity, dsh, gemini o agents
-  python3 install.py --destino RUTA        # otra carpeta de skills (crea RUTA/humanizar-es)
-  python3 install.py --symlink             # enlaza en vez de copiar (editas aqui, se refleja alla)
-  python3 install.py --desinstalar         # la quita de los mismos destinos
+An old humanizar-es install found in the same folders is removed.
 
-En Windows usa `python` o `py` en lugar de `python3`. En macOS y Linux tambien sirve
-./install.sh, que llama a este mismo archivo.
+usage:
+  python3 install.py                       # the two folders above
+  python3 install.py --agent codex         # a single agent: claude, codex, opencode,
+                                           #   antigravity, dsh, gemini or agents
+  python3 install.py --dest PATH           # another skills folder (creates PATH/humanizar-es)
+  python3 install.py --symlink             # link instead of copy (edit here, it shows there)
+  python3 install.py --uninstall           # remove it from the same destinations
+
+The old Spanish flags still work: --agente, --destino, --copiar, --desinstalar.
+On Windows use `python` or `py` instead of `python3`. On macOS and Linux ./install.sh,
+which calls this same file, also works.
 """
 import argparse
 import os
@@ -26,18 +29,20 @@ import sys
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(errors="replace")
 
-AQUI = os.path.dirname(os.path.abspath(__file__))
-NOMBRE = "humanizar-es"
-COPIAR = ("SKILL.md", "README.md", "README.en.md", "LICENSE", "THIRD_PARTY.md", "references", "scripts", "ejemplos")
+HERE = os.path.dirname(os.path.abspath(__file__))
+NAME = "humanizar-es"
+LEGACY_NAMES = ("humanize-local",)  # a 3.0 test build that never shipped
+COPY = ("SKILL.md", "README.md", "README.es.md", "LICENSE", "THIRD_PARTY.md", "references",
+        "scripts", "examples")
 
 
-def casa():
-    # HOME manda si existe (Git Bash y las pruebas lo fijan); si no, el perfil de Windows.
+def home():
+    # HOME wins if set (Git Bash and the tests set it); otherwise the Windows profile.
     return os.environ.get("HOME") or os.path.expanduser("~")
 
 
-def carpeta_de(agente):
-    h = casa()
+def folder_for(agent):
+    h = home()
     return {
         "claude": os.path.join(h, ".claude", "skills"),
         "codex": os.path.join(h, ".codex", "skills"),
@@ -47,115 +52,130 @@ def carpeta_de(agente):
         "dsh": os.path.join(h, ".dsh", "skills"),
         "gemini": os.path.join(h, ".gemini", "skills"),
         "agents": os.path.join(h, ".agents", "skills"),
-    }.get(agente)
+    }.get(agent)
 
 
-def borrar(ruta):
-    if os.path.islink(ruta) or os.path.isfile(ruta):
-        os.remove(ruta)
-    elif os.path.isdir(ruta):
-        def forzar(func, p, _):  # en Windows, los archivos de solo lectura no se borran sin esto
+def remove(path):
+    if os.path.islink(path) or os.path.isfile(path):
+        os.remove(path)
+    elif os.path.isdir(path):
+        def force(func, p, _):  # on Windows, read-only files are not deleted without this
             os.chmod(p, stat.S_IWRITE)
             func(p)
-        shutil.rmtree(ruta, onerror=forzar)
+        shutil.rmtree(path, onerror=force)
 
 
-def instalar_en(base, modo):
+def remove_legacy(base):
+    """Removes an install under an old name (folder or symlink) from this skills folder,
+    unless it is this very repository."""
+    for legacy in LEGACY_NAMES:
+        old = os.path.join(base, legacy)
+        if os.path.lexists(old) and (os.path.islink(old)
+                                     or os.path.realpath(old) != os.path.realpath(HERE)):
+            remove(old)
+            print(f"removed old version: {old}")
+
+
+def install_into(base, mode):
     base = os.path.abspath(os.path.expanduser(base))
-    if os.path.basename(base) == NOMBRE:  # no anidar .../humanizar-es/humanizar-es
+    if os.path.basename(base) in (NAME,) + LEGACY_NAMES:  # do not nest .../humanizar-es/humanizar-es
         base = os.path.dirname(base)
-    destino = os.path.join(base, NOMBRE)
+    dest = os.path.join(base, NAME)
 
-    if modo == "desinstalar":
-        if os.path.lexists(destino):
-            borrar(destino)
-            print(f"desinstalada: {destino}")
+    if mode == "uninstall":
+        if os.path.lexists(dest):
+            remove(dest)
+            print(f"uninstalled: {dest}")
         else:
-            print(f"no estaba en {destino}")
+            print(f"was not in {dest}")
+        remove_legacy(base)
         return
 
-    if os.path.realpath(destino) == os.path.realpath(AQUI):
-        sys.exit(f"ERROR: {destino} es este mismo repositorio")
+    if os.path.realpath(dest) == os.path.realpath(HERE):
+        sys.exit(f"ERROR: {dest} is this same repository")
     os.makedirs(base, exist_ok=True)
-    if os.path.lexists(destino):
-        borrar(destino)
+    remove_legacy(base)
+    if os.path.lexists(dest):
+        remove(dest)
 
-    if modo == "symlink":
+    if mode == "symlink":
         try:
-            os.symlink(AQUI, destino, target_is_directory=True)
-            print(f"enlazada: {destino} -> {AQUI}")
+            os.symlink(HERE, dest, target_is_directory=True)
+            print(f"linked: {dest} -> {HERE}")
             return
         except OSError:
-            # Windows sin modo de desarrollador no deja crear enlaces: se copia.
-            print("AVISO: no se pudo crear el enlace (en Windows hace falta el modo de "
-                  "desarrollador); se copia en su lugar.")
+            # Windows without developer mode does not allow links: copy instead.
+            print("WARNING: could not create the link (on Windows it needs developer "
+                  "mode); copying instead.")
 
-    os.makedirs(destino)
-    ignorar = shutil.ignore_patterns(".DS_Store", "__pycache__", "*.pyc")
-    for item in COPIAR:
-        origen = os.path.join(AQUI, item)
-        if os.path.isdir(origen):
-            shutil.copytree(origen, os.path.join(destino, item), ignore=ignorar)
-        elif os.path.isfile(origen):
-            shutil.copy2(origen, destino)
+    os.makedirs(dest)
+    ignore = shutil.ignore_patterns(".DS_Store", "__pycache__", "*.pyc")
+    for item in COPY:
+        src = os.path.join(HERE, item)
+        if os.path.isdir(src):
+            shutil.copytree(src, os.path.join(dest, item), ignore=ignore)
+        elif os.path.isfile(src):
+            shutil.copy2(src, dest)
     if os.name == "posix":
-        for raiz, dirs, archivos in os.walk(destino):
+        for root, dirs, files in os.walk(dest):
             for d in dirs:
-                os.chmod(os.path.join(raiz, d), 0o755)
-            for f in archivos:
-                ejecutable = f.endswith((".sh", ".py")) and os.path.basename(raiz) == "scripts"
-                os.chmod(os.path.join(raiz, f), 0o755 if ejecutable else 0o644)
-    print(f"copiada: {destino}")
+                os.chmod(os.path.join(root, d), 0o755)
+            for f in files:
+                executable = f.endswith((".sh", ".py")) and os.path.basename(root) == "scripts"
+                os.chmod(os.path.join(root, f), 0o755 if executable else 0o644)
+    print(f"copied: {dest}")
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Instala la skill humanizar-es.",
+    ap = argparse.ArgumentParser(description="Installs the humanizar-es skill.",
                                  formatter_class=argparse.RawDescriptionHelpFormatter,
-                                 epilog=__doc__.split("uso:")[1])
-    ap.add_argument("--agente", help="claude, codex, opencode, antigravity, dsh, gemini o agents")
-    ap.add_argument("--destino", help="otra carpeta de skills")
-    grupo = ap.add_mutually_exclusive_group()
-    grupo.add_argument("--symlink", dest="modo", action="store_const", const="symlink")
-    grupo.add_argument("--copiar", dest="modo", action="store_const", const="copiar")
-    grupo.add_argument("--desinstalar", dest="modo", action="store_const", const="desinstalar")
+                                 epilog=__doc__.split("usage:")[1])
+    ap.add_argument("--agent", "--agente", dest="agent",
+                    help="claude, codex, opencode, antigravity, dsh, gemini or agents")
+    ap.add_argument("--dest", "--destino", dest="dest", help="another skills folder")
+    group = ap.add_mutually_exclusive_group()
+    group.add_argument("--symlink", dest="mode", action="store_const", const="symlink")
+    group.add_argument("--copy", "--copiar", dest="mode", action="store_const", const="copy")
+    group.add_argument("--uninstall", "--desinstalar", dest="mode", action="store_const",
+                       const="uninstall")
     args = ap.parse_args()
-    modo = args.modo or "copiar"
+    mode = args.mode or "copy"
 
-    if args.destino:
-        destinos = [args.destino]
-    elif args.agente:
-        c = carpeta_de(args.agente)
+    if args.dest:
+        destinations = [args.dest]
+    elif args.agent:
+        c = folder_for(args.agent)
         if not c:
-            print(f"ERROR: agente desconocido: {args.agente} (ver --help)")
+            print(f"ERROR: unknown agent: {args.agent} (see --help)")
             return 2
-        destinos = [c]
+        destinations = [c]
     else:
-        destinos = [carpeta_de("claude"), carpeta_de("agents")]
+        destinations = [folder_for("claude"), folder_for("agents")]
 
-    if modo != "desinstalar":
+    if mode != "uninstall":
         try:
-            with open(os.path.join(AQUI, "SKILL.md"), encoding="utf-8") as fh:
-                cabecera = fh.read(400)
+            with open(os.path.join(HERE, "SKILL.md"), encoding="utf-8") as fh:
+                header = fh.read(400)
         except OSError:
-            cabecera = ""
-        if f"\nname: {NOMBRE}" not in cabecera:
-            print(f"ERROR: {AQUI}/SKILL.md no existe o no declara 'name: {NOMBRE}'")
+            header = ""
+        if f"\nname: {NAME}" not in header:
+            print(f"ERROR: {HERE}/SKILL.md does not exist or does not declare 'name: {NAME}'")
             return 1
 
-    for base in destinos:
-        instalar_en(base, modo)
-    if modo == "desinstalar":
+    for base in destinations:
+        install_into(base, mode)
+    if mode == "uninstall":
         return 0
 
     py = "python" if os.name == "nt" else "python3"
-    print("\nListo. Abre una sesion nueva de tu agente y pidele, por ejemplo:")
-    print("  «humaniza este texto sin cambiar lo que dice»")
-    print("\nLa primera vez hace falta ademas el modelo local (~4.6 GB, una sola vez):")
+    print("\nDone. Open a new session of your agent and ask it, for example:")
+    print("  «humanize this text without changing what it says»")
+    print("\nThe first time you also need the local model (~4.6 GB, only once):")
     if os.name == "nt":
         print("  winget install llama.cpp")
     else:
         print("  brew install llama.cpp")
-    print(f'  {py} "{os.path.join(AQUI, "scripts", "instalar_hip.py")}"')
+    print(f'  {py} "{os.path.join(HERE, "scripts", "install_model.py")}"')
     return 0
 
 

@@ -1,10 +1,10 @@
-# Conceptos que no se pueden perder del ensayo de ejemplo (original.txt). Uso:
-#   python3 scripts/verificar_fidelidad.py ejemplos/original.txt ejemplos/final.txt \
-#       --conceptos ejemplos/conceptos.txt
+# Concepts that must not be lost from the example essay (original.txt). Usage:
+#   python3 scripts/check.py examples/es/original.txt examples/es/2-final.txt \
+#       --concepts examples/es/concepts.txt
 #
-# Una linea por concepto. Variantes separadas por |. Se ignoran mayusculas y
-# acentos. Palabra completa con plural opcional; con * al final, por prefijo.
-# Los nombres propios de esta lista, ademas, unir.py los respeta con mayuscula.
+# One line per concept. Variants separated by |. Case and accents are ignored.
+# Whole word with optional plural; with a trailing *, by prefix.
+# join.py also keeps the proper nouns of this list capitalized.
 
 Aristóteles | Estagirita
 ousía

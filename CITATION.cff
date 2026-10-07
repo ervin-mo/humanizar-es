@@ -1,20 +1,23 @@
 cff-version: 1.2.0
-message: "Si usas este software, cítalo así. / If you use this software, please cite it as below."
-title: "humanizar-es: humanizador de texto IA en español, local y gratis"
+message: "If you use this software, please cite it as below."
+title: "humanizar-es: local AI text humanizer for Spanish and English"
 abstract: >-
-  Rewrites AI-generated Spanish text with a local base model (Qwen3-4B-Base + HIP adapter)
-  and joins the sentences of each paragraph, so that Grammarly's AI detector stops flagging
-  it without changing the meaning or adding errors.
+  Three-stage pipeline that rewrites AI-generated text (Spanish or English) with a local base
+  model without chat training (Qwen3-4B-Base + HIP adapter), checks concepts, negations and
+  copying against the original, and rebuilds the rhythm of each paragraph in blocks of uneven
+  length. Measured: 0% in Grammarly and 0% AI / 99% human in GPTZero on a 1,990-word essay.
 authors:
   - alias: ervin-mo
 repository-code: "https://github.com/ervin-mo/humanizar-es"
 license: MIT
-version: 2.1.1
-date-released: 2026-10-02
+version: 3.0.0
+date-released: 2026-10-07
 keywords:
   - AI humanizer
+  - humanize AI text
   - humanizador de texto IA
   - AI detector
+  - English
   - Spanish
   - base models
   - llama.cpp

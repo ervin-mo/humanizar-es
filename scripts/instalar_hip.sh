@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Atajo para macOS y Linux: la descarga la hace instalar_hip.py (que tambien corre en
-# Windows, con: python scripts\instalar_hip.py).
+# Old name of install_model.sh, kept so existing commands keep working.
 set -euo pipefail
-exec python3 "$(dirname "${BASH_SOURCE[0]}")/instalar_hip.py" "$@"
+echo "note: instalar_hip.sh is now install_model.sh" >&2
+exec bash "$(dirname "${BASH_SOURCE[0]}")/install_model.sh" "$@"

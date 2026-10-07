@@ -1,4 +1,37 @@
-# Cambios
+# Changelog
+
+## 3.0.0 — October 7, 2026
+
+A pipeline for two audiences: Spanish and English, with docs in both. Same name and URL,
+so existing installs keep working.
+
+**Measured:** a 1,990-word essay reached **0% and 0% in Grammarly** (two halves) and
+**0% AI / 99% human in GPTZero**, keeping 24 of 24 key concepts. ZeroGPT does not pass yet.
+
+- **Rhythm in blocks:** `join.py --pauses 2` leaves two or three periods per paragraph, in
+  blocks of uneven length of at least two sentences, cutting first where a sentence already
+  opens with a discourse marker. It reads like a person instead of one endless sentence.
+  (6% while a block could be a single sentence; 0% once not allowed.)
+- **Copy guard:** `rewrite.py` retries a try that copies more than 60% of its words from the
+  original in runs of 8+ words (`--max-copied`); if every try does, it keeps the least copied
+  one and warns. HIP had left half a paragraph word for word.
+- **Regenerate instead of rewriting by hand:** `rewrite.py --only 6,11` redoes just those
+  paragraphs and keeps the rest with their fixes. A hand fix is one to three words; bigger
+  hand fixes kept half an essay at 3%, regenerating them gave 0%.
+- `--tries` defaults to 6 (only a failing paragraph uses them); the warning for an unchanged
+  paragraph names the concept it kept losing.
+- English: `join.py` detects the language and links with "and"/";"; `check.py` knows English
+  negations; `rewrite.py` restores the `%` sign the HIP adapter drops.
+- Scripts in English: `rewrite.py` (was `hip.py`), `join.py` (`unir.py`), `check.py`
+  (`verificar_fidelidad.py`), `install_model.py` (`instalar_hip.py`). The old names, flags
+  (`--conceptos`, `--pausas`…) and environment variables still work. The model stays in
+  `~/.cache/humanizar-es/hip`: no re-download.
+- Docs: `README.md` (English) and `README.es.md` (Spanish), with the method, the controlled
+  measurements and how we measure (a human control and the AI original in every session).
+
+---
+
+*Earlier entries, in Spanish:*
 
 ## 2.1.1 — 2 de octubre de 2026
 

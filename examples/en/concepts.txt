@@ -1,0 +1,21 @@
+# Concepts that must not be lost from the example essay (original.txt). Usage:
+#   python3 scripts/check.py examples/en/original.txt examples/en/2-final.txt \
+#       --concepts examples/en/concepts.txt
+#
+# One line per concept. Variants separated by |. Case and accents are ignored.
+# Whole word with optional plural; with a trailing *, by prefix.
+# join.py also keeps the proper nouns of this list capitalized.
+
+pandemic
+2020
+commut*
+hour
+talent pool
+mentorship
+burnout
+Slack
+Zoom
+Microsoft Teams
+hybrid
+two or three days | 2 or 3 days
+five days | 5 days

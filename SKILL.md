@@ -1,162 +1,191 @@
 ---
 name: humanizar-es
-description: Reescribe texto en español generado por IA para que el detector de Grammarly deje de marcarlo, sin cambiar lo que dice y sin meter errores de ortografía ni de puntuación. Corre en local, sin API ni costo, con un modelo base (hip.py) y luego une las oraciones de cada párrafo (unir.py); llevó tres ensayos completos a 0%, 10% y 0% en Grammarly. Úsalo cuando pidan "humanizar", "que no lo detecte el detector de IA", "pasar Grammarly", "quitar las marcas de IA" o "que no suene a ChatGPT".
+description: Rewrites AI-generated text (Spanish or English) so AI detectors read it as human (0% in Grammarly, 0% AI / 99% human in GPTZero on the latest test essay), without changing what it says and without adding typos. Runs locally with no API or cost - a base model without chat training rewrites (rewrite.py), concepts and copying are checked (check.py), and the rhythm of each paragraph is rebuilt in blocks of uneven length (join.py --pauses 2). Use when asked to "humanize" text, "make it not detectable as AI", "pass Grammarly", "remove AI tells", "make it not sound like ChatGPT", or in Spanish "humaniza este texto", "que no lo detecte el detector de IA", "que no suene a ChatGPT".
 metadata:
-  version: "2.1.1"
-  idioma: es
-  evidencia: references/evidencia.md
+  version: "3.0.0"
+  languages: en, es
+  evidence: references/evidence.md
 ---
 
-# Humanizar texto en español
+# Humanize AI text, locally
 
-Recibes un texto escrito con IA y lo devuelves **diciendo exactamente lo mismo**, pero sin
-que el detector de Grammarly lo reconozca como IA. No eres un parafraseador ni un
-corrector de estilo: el trabajo lo hacen dos scripts y tu papel es prepararlos, revisar
-y verificar.
+You receive a text written with AI and give it back **saying exactly the same thing**, but
+without Grammarly's AI detector recognizing it as AI. You are not a paraphraser or a
+copy editor: two scripts do the work, and your job is to prepare them, review and verify.
+Talk to the user in their language.
 
-## Por qué funciona (léelo para no sabotearlo)
+## Why it works (read this so you don't sabotage it)
 
-1. **Los detectores reconocen la huella del entrenamiento de chat.** Todo lo que escribe
-   un modelo de chat la trae, **incluido tú**. Por eso nunca reescribas tú el texto ni
-   «mejores» oraciones: cada oración que redactas le devuelve la huella. El trabajo de
-   reescribir lo hace `hip.py`, que usa un modelo **base** (sin entrenamiento de chat).
-2. **Grammarly reconoce el ritmo**: oraciones de largo parejo, cada una con su punto.
-   `unir.py` las une con «y», y eso lo borra.
-3. **Hacen falta los dos pasos.** Medido: solo `hip.py`, 84%; solo unir, 57%; los dos, 8%.
+1. **Detectors recognize the fingerprint of chat training.** Everything a chat model
+   writes carries it, **including you**. So never rewrite the text yourself or "improve"
+   sentences: every sentence you write puts the fingerprint back. `rewrite.py` does the
+   rewriting with a **base** model (no chat training).
+2. **Grammarly recognizes rhythm**: sentences of even length, each with its own period.
+   `join.py` rebuilds it in blocks of uneven length, the way people write.
+3. **Both steps are needed.** Measured: `rewrite.py` alone 84%; joining alone 57%; both 8%.
+4. **Copied stretches of the original are AI text.** Never paste a sentence of the
+   original back, and never fix more than three words by hand: regenerate instead
+   (`--only`). Measured: 3% with bigger hand fixes, 0% after regenerating.
 
-En los comandos, `<skill>` es la carpeta donde está este `SKILL.md`. Los textos van en la
-carpeta de trabajo del usuario, no dentro de la skill. **En Windows** escribe `python` (o
-`py`) donde dice `python3`; todo lo demás es igual. No hace falta ninguna clave ni cuenta.
+In the commands, `<skill>` is the folder containing this `SKILL.md`. Texts go in the
+user's working folder, not inside the skill. **On Windows** type `python` (or `py`) where
+it says `python3`; everything else is the same. No key or account is needed.
 
-## Flujo de trabajo
+## Workflow
 
-### 1. Guardar el original sin tocarlo
+### 1. Save the original untouched
 
-Si el texto llegó por chat, escríbelo a `00-original.txt`, en párrafos separados por una
-línea en blanco. Nunca sobrescribas el original.
+If the text came through chat, write it to `00-original.txt`, with paragraphs separated by
+a blank line. Never overwrite the original.
 
-### 2. Preguntar el uso
+### 2. Ask what it's for
 
-Si es una entrega académica evaluada o un trabajo donde se exige declarar el uso de IA,
-dilo antes de seguir (ver *Uso responsable*).
+If it's graded academic work, or work where AI use must be disclosed, say so before going
+on (see *Responsible use*).
 
-### 3. Comprobar la instalación (una vez)
+### 3. Check the installation (once)
 
-Corre `python3 <skill>/scripts/instalar_hip.py`: si todo está, lo verifica y termina con
-«Listo»; si falta algo, lo dice.
+Run `python3 <skill>/scripts/install_model.py`: if everything is there it verifies it and
+ends with "Ready"; if something is missing, it says so.
 
-1. **llama.cpp**: si falta, macOS y Linux `brew install llama.cpp`; Windows
-   `winget install llama.cpp`. En Windows, `hip.py` también lo busca en la carpeta de winget,
-   así que no hace falta abrir otra terminal; si está en otro lado, la variable
-   `HUMANIZAR_LLAMA` lleva la ruta al `.exe`.
-2. **El modelo** (`Qwen3-4B-Base.Q8_0.gguf` y `hip-qwen3-4b-base.gguf` en
-   `~/.cache/humanizar-es/hip`, o en `HUMANIZAR_HIP_DIR`): si falta, **pide permiso** (son
-   ~4.6 GB) y deja que `instalar_hip.py` lo baje. Necesita red; si tu entorno la bloquea,
-   pide que lo autoricen o que el usuario lo corra en su terminal. Si se corta, se vuelve
-   a correr y sigue donde se quedó.
+1. **llama.cpp**: if missing, macOS and Linux `brew install llama.cpp`; Windows
+   `winget install llama.cpp`. On Windows `rewrite.py` also looks in winget's folder, so no
+   new terminal is needed; if it lives elsewhere, `HUMANIZE_LLAMA` holds the path to the
+   `.exe`.
+2. **The model** (`Qwen3-4B-Base.Q8_0.gguf` and `hip-qwen3-4b-base.gguf`): if missing,
+   **ask permission** (~4.6 GB) and let `install_model.py` download it. It needs network
+   access; if your environment blocks it, ask for approval or have the user run it in a
+   terminal. If the download is cut, run it again: it resumes.
 
-Python 3.9+ basta: los scripts no necesitan paquetes.
+Python 3.9+ is enough: the scripts need no packages.
 
-### 4. Anotar lo que no se puede perder
+### 4. List what must not be lost
 
-Arma con el usuario `conceptos.txt`: nombres propios **completos**, obras, términos,
-cifras, fechas y negaciones que sostienen una idea. Uno por línea, variantes con `|`, `*`
-para prefijos:
+Build `concepts.txt` with the user: **full** proper names, titles, terms, figures, dates
+and the negations an idea rests on. One per line, variants with `|`, `*` for prefixes:
 
 ```text
-René Descartes | Descartes
-principio de no contradicción
-deslave*
+Microsoft Teams | Teams
+two or three days | 2 or 3 days
+commut*
 ```
 
-Para arrancar: `python3 <skill>/scripts/verificar_fidelidad.py 00-original.txt --listar`
+To start: `python3 <skill>/scripts/check.py 00-original.txt --list`
 
-### 5. Reescribir con el modelo local
+### 5. Rewrite with the local model
 
-Avisa: unos 30 segundos por párrafo en una Mac M4, de 1 a 3 minutos en una PC más vieja;
-en CPU y sin costo. Si tu entorno corta comandos largos, lánzalo en segundo plano y revisa
-su salida: `hip.py` guarda el archivo después de cada párrafo e imprime su avance.
+Tell the user: about 30 seconds per paragraph on an M4 Mac, 1 to 3 minutes on an older PC;
+CPU only, free. If your environment cuts long commands, run it in the background and read
+its output: `rewrite.py` saves the file after every paragraph and prints its progress.
 
 ```bash
-python3 <skill>/scripts/hip.py 00-original.txt -o 01-hip.txt --conceptos conceptos.txt
+python3 <skill>/scripts/rewrite.py 00-original.txt -o 01-rewritten.txt --concepts concepts.txt
 ```
 
-Al final dice qué párrafos dejó como el original porque perdían un concepto.
+At the end it reports which paragraphs it left as the original and the concept they kept
+losing (check its spelling in `concepts.txt`), and which ones copied long stretches of the
+original in every try. Rerun only those paragraphs, with more `--tries`.
 
-### 6. Revisar y corregir, ANTES de unir (bloqueante)
+### 6. Review and fix, BEFORE joining (blocking)
 
 ```bash
-python3 <skill>/scripts/verificar_fidelidad.py 00-original.txt 01-hip.txt --conceptos conceptos.txt
+python3 <skill>/scripts/check.py 00-original.txt 01-rewritten.txt --concepts concepts.txt
 ```
 
-Después **compara cada párrafo de `01-hip.txt` con el original** y haz una lista de lo que
-cambió de verdad. Lo típico:
+Then **compare every paragraph of `01-rewritten.txt` with the original** and list what
+really changed. Typical slips:
 
-- un detalle cambiado («limpian» → «lavan los platos»; «foráneas» → «extranjeras»);
-- una idea invertida («renunciar al pragmatismo» por «resignarse al pragmatismo»);
-- género, número o fecha equivocados («Para una niña» por «los niños»; «siglo X»);
-- una errata o un acento perdido («timido», «metafisica»);
-- una frase que no se entiende.
+- a changed detail ("many" → "the majority"; "physical office" → "fixed schedule");
+- an inverted or overstated idea ("were forced to work from home" where it said "split
+  their time"; «renunciar al pragmatismo» for «resignarse al pragmatismo»);
+- wrong gender, number or date («siglo X»);
+- a lost `%` written in words ("sixty percent" → "60"), a typo or a dropped accent;
+- a sentence that doesn't make sense.
 
-Muéstrale la lista al usuario y corrige **solo la palabra o la frase mínima culpable**,
-con reemplazos exactos en `01-hip.txt`. No reescribas oraciones completas ni pulas el
-estilo: cada palabra que pones tú suma puntos en el detector (en las pruebas, 16
-correcciones subieron un ensayo de 8% a 10%). Lo que sea solo distinto, pero diga lo
-mismo, déjalo.
+Show the list to the user and fix **only the minimal culprit word or phrase**, with exact
+replacements in `01-rewritten.txt`. Don't rewrite whole sentences or polish style: every
+word you add raises the detector score (in testing, 16 fixes moved an essay from 8% to
+10%). If it's just different but says the same thing, leave it.
 
-### 7. Unir las oraciones
+**A fix is one to three words.** If a paragraph needs more — a garbled or inverted
+sentence, an invented quote, a lost sentence — **don't write it and don't paste the
+original's sentence back** (that is AI text again): redo that paragraph from the original
+with the model and review it again:
 
 ```bash
-python3 <skill>/scripts/unir.py 01-hip.txt -o 02-final.txt --conceptos conceptos.txt
+python3 <skill>/scripts/rewrite.py 00-original.txt -o 01-rewritten.txt --concepts concepts.txt --only 6,11
 ```
 
-Si avisa de palabras que bajó a minúscula, revisa cuáles son nombres propios; agrégalos a
-`conceptos.txt` y vuelve a correrlo. **No toques `02-final.txt` después**: cualquier
-corrección va en `01-hip.txt` y se vuelve a unir.
+`--only` keeps the other paragraphs and their fixes. Measured on a 1,990-word essay in
+Grammarly: its last half scored 3% twice while it carried hand fixes of four or more words
+(a few of them the original's own words put back); after redoing those paragraphs with
+`--only` and fixing only 1-2 words, 0%. The bibliography was not the cause.
 
-### 8. Verificar y entregar
+### 7. Rebuild the rhythm
 
 ```bash
-python3 <skill>/scripts/verificar_fidelidad.py 00-original.txt 02-final.txt --conceptos conceptos.txt
+python3 <skill>/scripts/join.py 01-rewritten.txt -o 02-final.txt --concepts concepts.txt --pauses 2
 ```
 
-Entrega `02-final.txt`, la tabla de fidelidad y la lista de correcciones. Avisa que los
-párrafos quedan en oraciones largas encadenadas: es lo que hace pasar el detector.
-Recuérdale medir en su detector **junto con un texto suyo escrito sin IA**.
+It detects English or Spanish (force it with `--lang en|es`). If it warns about words it
+lowercased, check which are proper names; add them to `concepts.txt` and run it again.
+`--pauses 2` leaves two or three periods per paragraph, in blocks of
+uneven length, cutting first where a sentence already opens with «Sin embargo», «Por
+ejemplo», «Segundo»… and joining the rest with «y» or «;». Then you may swap the «y» or «;»
+of a join for a logical connector («sin embargo», «por eso», «así», «es decir», «en
+cambio») **only where the relation is plain**, one or two words per swap. Measured on a
+1,990-word essay: **0% and 0% in Grammarly** with 12 such swaps. Every block keeps at least
+two sentences: when a near-copy of the original was left alone between two periods, that
+half went up to 6%. Without `--pauses`, every sentence of a paragraph is joined into one
+(also measured at 0%, but it reads badly); use it only if the user asks for it.
 
-## Lo que no hay que hacer
+**Don't touch `02-final.txt` afterwards** except for those connector swaps: any fix goes into `01-rewritten.txt` and you
+join again.
 
-- **Reescribir tú, «humanizar» con tus palabras o pedírselo a otro modelo de chat.**
-  Mete la huella que esta receta quita.
-- **Meter erratas, quitar comas o poner espacios dobles.** No hace falta: los espacios
-  dobles no movieron nada (84% → 84%), y unir oraciones bajó más que cualquier error.
-- **Correr `hip.py` dos veces.** La segunda pasada se aleja del sentido y obliga a más
-  correcciones (en las pruebas terminó en 91%).
-- **Usar la GPU sin preguntar.** `hip.py` corre en CPU a propósito.
+### 8. Verify and deliver
 
-## Límites (léelos antes de prometer nada)
+```bash
+python3 <skill>/scripts/check.py 00-original.txt 02-final.txt --concepts concepts.txt
+```
 
-1. **Se midió en Grammarly, con tres ensayos (0%, 10% y 0%).** Está optimizado para
-   Grammarly; GPTZero y ZeroGPT todavía no lo pasan de forma confiable. Si el usuario
-   necesita otro detector, díselo antes de empezar. No prometas un número.
-2. **Los detectores marcan texto humano** y cambian sin avisar. Por eso el control humano.
-3. **El modelo se entrenó en inglés.** Funciona en español con un truco (le damos las dos
-   primeras palabras de cada párrafo), pero comete los errores del paso 6.
+Deliver `02-final.txt`, the fidelity table and the list of fixes. Warn that sentences stay
+longer than in a polished essay: that's part of what passes the detector. If the text is
+over ~1,400 words, tell the user to measure it in Grammarly in two halves. Remind the user to measure
+in their detector **together with a text of their own written without AI**.
 
-## Uso responsable
+## Don't
 
-Para texto propio o de un cliente que se publica con responsabilidad de quien firma:
-marca, divulgación, documentación, correos, borradores escritos con ayuda de IA. **No lo
-uses para presentar como propio un trabajo evaluado donde el uso de IA está prohibido o
-debe declararse.** Si el destino es una entrega académica, avisa del riesgo antes de
-proceder.
+- **Rewrite it yourself, "humanize" it in your own words, or ask another chat model.**
+  That adds the fingerprint this recipe removes.
+- **Add typos, remove commas or add double spaces.** Not needed: double spaces moved
+  nothing (84% → 84%), and joining sentences lowered the score more than any error.
+- **Run `rewrite.py` twice.** The second pass drifts from the meaning and needs more fixes
+  (in testing it ended at 91%).
+- **Use the GPU without asking.** `rewrite.py` runs on CPU on purpose.
 
-## Archivos
+## Limits (read before promising anything)
 
-- `scripts/instalar_hip.py` — baja y verifica el modelo (una vez)
-- `scripts/hip.py` — paso 5: reescribe con el modelo base local
-- `scripts/unir.py` — paso 7: une las oraciones de cada párrafo
-- `scripts/verificar_fidelidad.py` — conceptos y negaciones, original contra versión
-- `references/evidencia.md` — todas las mediciones
-- `references/detectores.md` — cómo medir en Grammarly y sus límites
-- `ejemplos/` — un ensayo y su paso por la receta
+1. **Measured on Grammarly and GPTZero**, Spanish essays: Grammarly 0% on three of four
+   (10% on an older run); GPTZero 0% AI / 99% human on the one measured. **ZeroGPT does not
+   pass yet** (49.8%), and English has not been measured. If the user needs another
+   detector, tell them before starting. Never promise a number.
+2. **Detectors flag human text too** and change without notice. Hence the human control.
+3. **Only English and Spanish** have joining rules. Other languages: the rewrite may work,
+   joining won't.
+
+## Responsible use
+
+For text the user or their client signs and answers for: brand content, outreach,
+documentation, emails, drafts written with AI help. **Don't use it to pass off graded work
+as one's own where AI is banned or must be disclosed.** If that's the destination, flag the
+risk before proceeding.
+
+## Files
+
+- `scripts/install_model.py` — downloads and verifies the model (once)
+- `scripts/rewrite.py` — step 5: rewrite with the local base model
+- `scripts/join.py` — step 7: rebuild the rhythm of each paragraph
+- `scripts/check.py` — concepts and negations, original against version
+- `references/evidence.md` — every measurement
+- `references/detectors.md` — how to measure in Grammarly, and its limits
+- `examples/` — worked examples in English and Spanish

@@ -1,241 +1,305 @@
-# humanizar-es · Humanizador de texto IA en español, local y gratis
+# humanizar-es · Local AI text humanizer for Spanish and English
 
-[![pruebas](https://github.com/ervin-mo/humanizar-es/actions/workflows/pruebas.yml/badge.svg)](https://github.com/ervin-mo/humanizar-es/actions/workflows/pruebas.yml)
-[![licencia: MIT](https://img.shields.io/badge/licencia-MIT-blue.svg)](LICENSE)
-[![macOS · Linux · Windows](https://img.shields.io/badge/macOS%20·%20Linux%20·%20Windows-sí-success.svg)](#instalar)
-[![sin API ni costo](https://img.shields.io/badge/API%20ni%20claves-no%20hacen%20falta-success.svg)](#cómo-funciona)
+[![tests](https://github.com/ervin-mo/humanizar-es/actions/workflows/tests.yml/badge.svg)](https://github.com/ervin-mo/humanizar-es/actions/workflows/tests.yml)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![macOS · Linux · Windows](https://img.shields.io/badge/macOS%20·%20Linux%20·%20Windows-yes-success.svg)](#install)
+[![Español · English](https://img.shields.io/badge/Español%20·%20English-yes-success.svg)](#languages)
 
-**Español** · [English](README.en.md)
+**English** · [Español](README.es.md)
 
-![humanizar-es: humaniza texto de IA en español, en tu computadora y gratis](assets/vista-previa.png)
+![humanizar-es: make AI text read as human, on your own computer, for free](assets/vista-previa.png)
 
-**humanizar-es** reescribe un texto en español generado con ChatGPT, Claude, Gemini o
-DeepSeek para que **el detector de IA de Grammarly deje de marcarlo**, sin cambiar lo que
-dice y sin meter errores de ortografía ni de puntuación. Corre en tu computadora con un
-modelo abierto: sin API, sin claves, sin pagar por palabra y sin mandar tu texto a nadie.
-Funciona solo o como *skill* para tu agente (Claude Code, Codex, OpenCode, Antigravity).
+**humanizar-es** takes a text written with ChatGPT, Claude, Gemini or DeepSeek and gives
+it back **saying the same thing**, in prose that AI detectors read as human: **0% in
+Grammarly and 0% AI / 99% human in GPTZero** on our latest test essay. It runs on your own
+computer with an open model: no API, no keys, no per-word fees, and your text never leaves
+your machine. Use it by hand or as a *skill* for your coding agent (Claude Code, Codex,
+OpenCode, Antigravity).
 
-| Ensayo generado con IA | Antes | **Después** |
-|---|---|---|
-| Turismo e IA en Chiapas · 1,150 palabras | 77% IA | **0% IA** |
-| Dragon Ball y su generación · 910 palabras | 84% IA | **10% IA** |
-| Un modelo de IA para clasificar · 690 palabras | sin medir | **0% IA** |
-
-*Detector de IA de Grammarly, octubre de 2026. Se conservaron 79 de 80 conceptos clave.*
+It is not a synonym spinner and it does not plant typos. It is a three-stage pipeline built
+from controlled experiments, one variable at a time, each checked against a human-written
+control.
 
 ---
 
-## Cómo funciona
+## Results
 
-Dos ideas, cada una medida por separado:
+| AI-generated essay (Spanish) | Grammarly, before | **Grammarly, after** | GPTZero, after |
+|---|---|---|---|
+| Aristotle: act and potency · 1,990 words | 45% | **0% and 0%** (two halves) | **0% AI · 99% human** |
+| Tourism and AI in Chiapas · 1,150 words | 77% | **0%** | not measured |
+| An AI classification model · 690 words | not measured | **0%** | not measured |
+| Dragon Ball and its generation · 910 words | 84% | **10%** | not measured |
+
+*October 2026. Every key name, term and figure was checked after each rewrite (24 of 24 in
+the first essay). GPTZero read the first 10,000 characters. The Dragon Ball essay was run
+with an earlier version of the pipeline.*
+
+---
+
+## The method
 
 ```
- tu texto ─► 1. hip.py ─► 2. tú corriges 2-3 palabras ─► 3. unir.py ─► texto final
-             reescribe con un        (lo que el modelo           une las oraciones
-             modelo BASE local        cambió de más)              de cada párrafo
+ original ─► 1. rewrite.py ──► 2. fidelity control ──► 3. join.py ──► final text
+             base model,        concepts, negations,     rhythm: blocks of
+             no chat training   copy guard, ≤3-word      uneven length, cut
+                                hand fixes               where the idea turns
 ```
 
-**1. Reescribir con un modelo base, no con uno de chat.** Los detectores reconocen sobre
-todo la *huella del entrenamiento de chat*: todo lo que escribe un ChatGPT o un Claude la
-trae, aunque le pidas que «suene humano». Un modelo **base**, sin ese entrenamiento,
-escribe como la gente. Lo demostraron Xu et al. (2026) en
-[*Base Models Look Human To AI Detectors*](https://arxiv.org/abs/2605.19516): con GPTZero y
-Pangram, el texto de un modelo base salió 97–99% humano y el de su versión de chat,
-17–30%. `hip.py` usa Qwen3-4B-Base con el adaptador HIP de ese artículo.
+### 1. Remove the chat-training fingerprint
 
-**2. Romper el ritmo.** Grammarly reconoce el ritmo del texto de IA: oraciones de largo
-parejo, cada una con su punto. `unir.py` une las oraciones de cada párrafo con «y», como
-escribe alguien de corrido, sin tocar ninguna otra palabra.
+AI detectors mostly recognize the *fingerprint of chat training* (instruction tuning and
+RLHF), not "AI" in general. Everything a chat model writes carries it, even when asked to
+"sound human". Xu et al. (2026), [*Base Models Look Human To AI Detectors*](https://arxiv.org/abs/2605.19516),
+measured it: on GPTZero and Pangram, text from a **base** model scored 97–99% human and
+the same model after chat training 17–30%. Our own tests agree: every rewrite we tried
+with a chat model stayed between 64% and 100% in Grammarly.
 
-Los dos pasos hacen falta. Sobre el mismo ensayo, un cambio a la vez:
+`rewrite.py` paraphrases with Qwen3-4B-Base plus the paper's HIP adapter, through
+llama.cpp, on your CPU. Each paragraph gets one pass (more passes drift from the meaning)
+and is rejected and retried when it:
 
-| Versión | Grammarly |
+- loses a concept you listed (names, terms, figures, key negations);
+- comes out truncated or runs away;
+- **copies the original**: more than 60% of its words in runs of 8+ words copied verbatim.
+  A copied stretch is still the original AI text, and detectors flag it.
+
+### 2. Keep it faithful without putting the fingerprint back
+
+`check.py` compares the original and the rewrite: every concept, every negation. A person
+then rereads each paragraph and fixes **one to three words** at most. Anything bigger (a
+garbled sentence, an invented quote, a lost idea) is regenerated by the model with
+`rewrite.py --only N`, never written by hand and never pasted back from the original. This
+rule comes from a measurement: hand fixes of four or more words kept half of an essay at
+3%; regenerating those paragraphs brought it to 0%.
+
+### 3. Change the rhythm
+
+Grammarly recognizes the rhythm of AI prose: sentences of even length, each closed by its
+own period. People write in bursts, some long, some short. `join.py` rebuilds that rhythm
+without touching a single word of content:
+
+- `--pauses 2` (recommended) leaves two or three periods per paragraph, in **blocks of
+  uneven length**, cutting first where a sentence already opens with a discourse marker
+  ("However", "For example", "Second"). Inside a block, sentences are linked with "and"
+  or ";". Every block keeps at least two sentences, so a near-copy of the original is never
+  left standing alone.
+- Then you may swap a link for a logical connector ("however", "therefore", "that is",
+  "on the other hand") where the relation is plain: one or two words per swap.
+- Without `--pauses`, every sentence of a paragraph is joined into one: the first version,
+  also at 0%, but harder to read.
+
+### What each piece is worth (one change at a time)
+
+| Version of the same essay | Grammarly |
 |---|---|
-| Reescrito por `hip.py` | 84% |
-| … más espacios dobles | 84% |
-| … quitando comas | 60% |
-| … uniendo con «y» algunas oraciones | 40% |
-| … **uniendo todas las oraciones de cada párrafo** | **8%** |
-| El original, sin `hip.py`, uniendo todas | 57% |
-| Reescribir con un modelo de chat (varias recetas) | 64–100% |
+| Rewritten by the base model only | 84% |
+| … plus random double spaces | 84% |
+| … removing ~35% of the commas | 60% |
+| … joining ~60% of the sentences | 40% |
+| … joining every sentence of each paragraph | **8%** |
+| The original, without the base model, joining every sentence | 57% |
+| Rewriting with a chat model (four different recipes) | 64–100% |
+| Base model + pauses, a sentence left alone between two periods | 6% |
+| **Base model + pauses, blocks of two or more sentences + 12 connectors** | **0% and 0%** |
 
-Todas las mediciones: [`references/evidencia.md`](references/evidencia.md).
+Both stages are needed, and typos are not: punctuation noise barely moves the score, and
+the rhythm does. Every measurement: [`references/evidence.md`](references/evidence.md).
+
+### How we measure
+
+- **Two controls in every session**: a human text (a 1914 prologue by Unamuno, and the
+  author's own chat messages, typos included) must come out human, and the AI original
+  must come out as AI. A detector that fails either one does not count: QuillBot scored
+  the AI original 100% human, and GPTZero, after many scans from the same browser, scored
+  Unamuno 100% AI.
+- **The reference is re-measured in the same session**, never compared with a number
+  from hours before: detectors change and throttle without notice.
+- **Grammarly reads about 1,400 words**, so longer texts are measured in halves.
 
 ---
 
-## Instalar
+## Install
 
-### Con tu agente (lo más fácil)
+### With your agent (easiest)
 
 ```bash
 git clone https://github.com/ervin-mo/humanizar-es.git
 cd humanizar-es
-python3 install.py          # en Windows: python install.py
+python3 install.py          # on Windows: python install.py
 ```
 
-Abre una sesión nueva y pídele **«humaniza este texto»**. La skill le dice al agente qué
-hacer: instalar lo que falte (te pide permiso antes de bajar el modelo), anotar contigo lo
-que no se puede perder, reescribir, mostrarte cada cambio, unir y verificar.
+Open a new session and ask: **"humanize this text"** (or «humaniza este texto»). The
+skill tells the agent what to do: install what's missing (it asks before downloading the
+model), list with you what must not be lost, rewrite, show you every change, join and
+verify.
 
-| Agente | Carpeta de skills | ¿La cubre `install.py`? |
+| Agent | Skills folder | Covered by `install.py`? |
 |---|---|---|
-| Claude Code | `~/.claude/skills` | sí |
-| Codex | `~/.agents/skills` | sí |
-| OpenCode | `~/.agents/skills`, `~/.claude/skills` | sí |
-| Antigravity (`agy`) | `~/.agents/skills` | sí |
-| DeepSeek Harness (`dsh`) | `~/.agents/skills` | sí |
-| Gemini CLI | `~/.gemini/skills` | con `--agente gemini` |
+| Claude Code | `~/.claude/skills` | yes |
+| Codex | `~/.agents/skills` | yes |
+| OpenCode | `~/.agents/skills`, `~/.claude/skills` | yes |
+| Antigravity (`agy`) | `~/.agents/skills` | yes |
+| DeepSeek Harness (`dsh`) | `~/.agents/skills` | yes |
+| Gemini CLI | `~/.gemini/skills` | with `--agent gemini` |
 
-### El modelo (una vez, ~4.6 GB)
+### The model (once, ~4.6 GB)
 
-Necesitas Python 3.9 o más nuevo, sin paquetes extra, y
-[llama.cpp](https://github.com/ggml-org/llama.cpp):
+You need Python 3.9+ (no extra packages) and [llama.cpp](https://github.com/ggml-org/llama.cpp):
 
-| | macOS y Linux | Windows |
+| | macOS and Linux | Windows |
 |---|---|---|
 | llama.cpp | `brew install llama.cpp` | `winget install llama.cpp` |
-| El modelo | `python3 scripts/instalar_hip.py` | `python scripts\instalar_hip.py` |
+| The model | `python3 scripts/install_model.py` | `python scripts\install_model.py` |
 
-El instalador verifica cada archivo con su sha256 y, si la descarga se corta, sigue donde
-se quedó. Corre en CPU: con 8 GB de RAM libres alcanza, sin GPU. En una Mac M4 tarda unos
-30 segundos por párrafo; en una PC de hace unos años, de 1 a 3 minutos.
+The installer checks every file against its sha256 and resumes if the download is cut.
+It runs on CPU: 8 GB of free RAM is enough, no GPU. On an M4 Mac it takes about 30–60
+seconds per paragraph; on a few-years-old PC, 1 to 3 minutes.
 
 ---
 
-## Úsalo a mano
+## Use it by hand
 
-En Windows escribe `python` donde dice `python3`.
+On Windows, type `python` where it says `python3`.
 
-**1. Anota lo que no se puede perder**, en `conceptos.txt`: nombres propios completos,
-cifras, términos. Uno por línea, variantes con `|`, `*` para prefijos.
+**1. List what must not be lost** in `concepts.txt`: full proper names, figures, terms.
+One per line, variants with `|`, `*` for prefixes.
 
 ```text
-René Descartes | Descartes
-principio de no contradicción
-deslave*
+Aristotle
+act and potency | act and potentiality
+self-regulat*
 ```
 
-**2. Reescribe** (párrafo por párrafo; reintenta si un párrafo pierde un concepto):
+**2. Rewrite** with the base model:
 
 ```bash
-python3 scripts/hip.py mi-texto.txt -o reescrito.txt --conceptos conceptos.txt
+python3 scripts/rewrite.py my-text.txt -o rewritten.txt --concepts concepts.txt
 ```
 
-**3. Revisa y corrige a mano, antes de unir.** El modelo a veces cambia un detalle
-(«limpian» → «lavan los platos»), invierte una idea, se equivoca de género o de fecha o se
-come un acento:
+**3. Check, and fix one to three words at most.** For anything bigger, regenerate that
+paragraph:
 
 ```bash
-python3 scripts/verificar_fidelidad.py mi-texto.txt reescrito.txt --conceptos conceptos.txt
+python3 scripts/check.py my-text.txt rewritten.txt --concepts concepts.txt
+python3 scripts/rewrite.py my-text.txt -o rewritten.txt --concepts concepts.txt --only 6,11
 ```
 
-Corrige **solo la palabra culpable**. No le pidas a ChatGPT que lo arregle: le devuelve la
-huella que el modelo base le quitó.
+Don't ask ChatGPT to fix it: it puts back the fingerprint the base model removed.
 
-**4. Une las oraciones:**
+**4. Rebuild the rhythm** (the language is detected automatically):
 
 ```bash
-python3 scripts/unir.py reescrito.txt -o final.txt --conceptos conceptos.txt
+python3 scripts/join.py rewritten.txt -o final.txt --concepts concepts.txt --pauses 2
 ```
 
-**5. Mide** en el detector, junto con un texto que tú escribiste sin IA como control
-([`references/detectores.md`](references/detectores.md)).
+**5. Measure** in your detector, with a human text as control
+([`references/detectors.md`](references/detectors.md)).
 
-Un ejemplo completo, con lo que se corrigió a mano, está en [`ejemplos/`](ejemplos/).
+Worked examples, with every hand fix listed, are in [`examples/`](examples/).
 
 ---
 
-## Detectores
+## Languages
 
-| Detector | Estado |
+| | Rewrite | Rhythm | Check | Measured |
+|---|---|---|---|---|
+| **Español** | ✅ | ✅ «y», «;», «sin embargo»… | ✅ | ✅ four essays |
+| **English** | ✅ (the HIP adapter was trained in English) | ✅ "and", ";", "however"… | ✅ | not yet |
+
+Other languages: the rewrite may work (the base model is multilingual), but `join.py`
+only knows Spanish and English connectors. Adding one is a small dictionary in
+`scripts/join.py`; pull requests welcome.
+
+## Detectors
+
+| Detector | Status |
 |---|---|
-| **Grammarly** | ✅ Optimizado y probado: tres ensayos a 0%, 10% y 0% |
-| **GPTZero** · **ZeroGPT** | 🔧 Próxima mejora: en pruebas |
-| Otros | Sin medir |
+| **Grammarly** | ✅ 0% on three of four essays; 10% on the fourth |
+| **GPTZero** | ✅ 0% AI · 99% human on the essay we measured |
+| **ZeroGPT** | ❌ not yet: 44.9% on the original, 49.8% after. It weighs something else |
+| QuillBot | not usable in Spanish: it scored the AI original 100% human |
 
-Cada detector usa su propio modelo, así que una versión que pasa uno puede no pasar otro.
-Si tu texto tiene que pasar un detector en particular, mídelo ahí junto con un texto tuyo
-escrito sin IA ([`references/detectores.md`](references/detectores.md)). Las mediciones en
-más detectores son la contribución que más falta (ver [Contribuir](#contribuir)).
-
----
-
-## Preguntas frecuentes
-
-**¿Es gratis? ¿Necesito una clave de OpenAI o de algún servicio?**
-Gratis y sin claves. El modelo se descarga una vez y corre en tu computadora; tu texto no
-sale de ella.
-
-**¿Cambia lo que dice mi texto?**
-No debería: `hip.py` reintenta si se pierde un concepto, `verificar_fidelidad.py` revisa
-conceptos y negaciones, y tú revisas cada párrafo antes de unir. En las pruebas se
-conservaron 79 de 80 conceptos.
-
-**¿Mete errores a propósito, como otros «humanizadores»?**
-No. Meter erratas también baja el número, pero deja errores visibles. Esta receta no toca
-la ortografía ni la puntuación.
-
-**¿Funciona en inglés?**
-El adaptador HIP se entrenó en inglés, así que la reescritura sí; `unir.py` está hecho para
-el español («y», «pero», «además»). Nadie lo ha medido en inglés todavía.
-
-**¿Por qué el texto final tiene oraciones tan largas?**
-Es justo lo que lo hace pasar: Grammarly reconoce oraciones de largo parejo. Si tu texto
-exige oraciones cortas y pulidas, este no es tu método.
-
-**¿Necesito GPU?**
-No. Corre en CPU, con prioridad baja para que tu computadora siga usable.
+Each detector runs its own model, so a version that passes one may not pass another.
+Measurements on more detectors are the contribution we need most.
 
 ---
 
-## Límites
+## FAQ
 
-1. **Optimizado para Grammarly, con tres ensayos medidos.** GPTZero y ZeroGPT son la
-   siguiente mejora (ver [Detectores](#detectores)).
-2. **Párrafos en oraciones largas encadenadas.** Es parte de cómo pasa.
-3. **Releer no es opcional.** El modelo se entrenó en inglés y a veces cambia un detalle o
-   invierte una idea; en un ensayo volteó el sentido de la conclusión.
-4. **Cada corrección hecha por un modelo de chat le suma puntos.** Corrige poco y a mano.
-5. **Los detectores cambian.** Esto es una foto de octubre de 2026.
+**Is it free? Do I need an OpenAI key or any account?**
+Free and keyless. The model downloads once and runs on your computer.
 
-## Uso responsable
+**Does it change what my text says?**
+It shouldn't: `rewrite.py` rejects tries that lose a concept, `check.py` checks concepts
+and negations, and you review every paragraph. In our tests the final texts kept every
+listed concept.
 
-Hecho para texto que firmas y del que respondes: contenido de marca, divulgación,
-documentación, correos, borradores escritos con ayuda de IA. **No lo uses para entregar
-como propio un trabajo evaluado donde el uso de IA está prohibido o debe declararse.** Ahí
-el problema no es técnico: es de honestidad académica.
+**Does it add typos on purpose, like other "humanizers"?**
+No. It changes rhythm, not spelling.
+
+**Are the results consistent?**
+Three of the four essays reached 0% in Grammarly (the fourth, 10%, ran on an earlier
+version), and the latest one also passed GPTZero.
+The pipeline is deterministic where it can be (the joining is seeded), it refuses copied
+output, and 43 tests run on every change on Ubuntu, macOS and Windows. Detectors are not
+deterministic over time, which is why we always measure with controls.
+
+**Do I need a GPU?**
+No. It runs on CPU, at low priority, so your computer stays usable.
 
 ---
 
-## Estructura
+## Limits
+
+1. **Measured in Grammarly and GPTZero, on Spanish essays.** ZeroGPT does not pass yet;
+   English has not been measured.
+2. **Rereading is not optional.** The base model sometimes changes a detail, invents a
+   quote or flips an idea. The pipeline catches lost concepts; a person catches the rest.
+3. **Long blocks.** With `--pauses 2` paragraphs read naturally, but sentences stay longer
+   than in a polished essay.
+4. **Detectors change.** This is a snapshot of October 2026.
+
+## Responsible use
+
+Made for text you sign and answer for: brand content, outreach, documentation, emails,
+drafts written with AI help. **Don't use it to hand in graded work as your own where AI is
+banned or must be disclosed.** That problem isn't technical; it's academic honesty.
+
+---
+
+## Project layout
 
 ```
 humanizar-es/
-├── SKILL.md                     la skill para agentes
-├── install.py                   instala la skill (install.sh: atajo para macOS y Linux)
+├── SKILL.md                 the skill for agents
+├── install.py               installs the skill (install.sh: shortcut for macOS/Linux)
 ├── scripts/
-│   ├── instalar_hip.py          baja el modelo (una vez)
-│   ├── hip.py                   paso 1: reescribe con el modelo base local
-│   ├── unir.py                  paso 3: une las oraciones de cada párrafo
-│   └── verificar_fidelidad.py   que no se pierda ningún concepto ni negación
-├── ejemplos/                    un ensayo y su paso por la receta
-├── references/                  todas las mediciones y cómo medir
-└── tests/                       pruebas en Ubuntu, macOS y Windows (sin red ni modelos)
+│   ├── install_model.py     downloads the model (once)
+│   ├── rewrite.py           stage 1: rewrite with the local base model
+│   ├── check.py             stage 2: concepts and negations, original vs rewrite
+│   └── join.py              stage 3: rebuild the rhythm of each paragraph
+├── examples/                worked examples in Spanish and English
+├── references/              every measurement, and how to measure
+└── tests/                   43 tests on Ubuntu, macOS and Windows (no network, no model)
 ```
 
-## Contribuir
+The old script names (`hip.py`, `unir.py`, `verificar_fidelidad.py`, `instalar_hip.py`)
+still work.
 
-Lo que más falta es **evidencia**: la receta medida en más textos (correos, marketing,
-textos técnicos) y en más detectores, siempre con un control humano. Abre un *issue* o un
-PR con los números en [`references/evidencia.md`](references/evidencia.md).
+## Contributing
+
+What's missing most is **evidence**: the pipeline measured on more texts, more languages
+and more detectors, always with a human control. Open an issue or a PR with the numbers in
+[`references/evidence.md`](references/evidence.md).
 
 ```bash
 python3 -m unittest discover -s tests -v
 ```
 
-## Créditos y licencia
+## Credits and license
 
-Código y documentación: [MIT](LICENSE), © ervin-mo. El método HIP y su adaptador son de
-Xu et al. (2026); el modelo base es Qwen3-4B-Base de Alibaba. Ambos son Apache-2.0 y se
-descargan aparte: ver [`THIRD_PARTY.md`](THIRD_PARTY.md). Si lo usas en un trabajo, cita el
-repo ([`CITATION.cff`](CITATION.cff)) y el artículo de HIP.
+Code and docs: [MIT](LICENSE), © ervin-mo. The HIP method and adapter are by Xu et al.
+(2026); the base model is Alibaba's Qwen3-4B-Base. Both are Apache-2.0 and downloaded
+separately: see [`THIRD_PARTY.md`](THIRD_PARTY.md). If you use this in your work, cite the
+repo ([`CITATION.cff`](CITATION.cff)) and the HIP paper.
