@@ -25,13 +25,15 @@ condition, and a human-written control and the AI original in every session.
 
 ## Results
 
-| AI-generated essay (Spanish) | Grammarly | ZeroGPT | GPTZero |
+| AI-generated essay | Grammarly | ZeroGPT | GPTZero |
 |---|---|---|---|
 | **Aristotle: act and potency** · 1,990 words · before | 45% | 45.3% | 37% AI |
 | **Aristotle: act and potency** · **after** | **0% and 0%** | **0%** | **0% AI · 98% human** |
 | Tourism and AI in Chiapas · 1,150 words | 77% → **0%** | — | — |
 | An AI classification model · 690 words | → **0%** | — | — |
 | Dragon Ball and its generation · 910 words | 84% → **10%** | — | — |
+| 🇬🇧 Remote work (English) · 601 words | — | 100% → **0%** | — |
+| 🇬🇧 Electric vehicles (English) · 673 words | — | 100% → **0%** | — |
 
 *October 2026. The first essay keeps 24 of 24 key names, terms and figures, and its two
 quotations of Aristotle word for word. Grammarly reads ~1,400 words, so it was measured in
@@ -55,7 +57,7 @@ taken apart with experiments:
 
 | Detector | What it reacts to | What does **not** move it |
 |---|---|---|
-| **GPTZero** | the fingerprint of chat training (instruction tuning, RLHF) | — (not yet taken apart) |
+| **GPTZero** | the fingerprint of chat training; its newer English model (4.1o) also reads base-model text, our next milestone | — |
 | **Grammarly** | rhythm: sentences of even length, each closed by its own period | double spaces (typos do move it, but leave visible errors) |
 | **ZeroGPT** | individual sentences that read like a textbook; it scores **sentence by sentence and weighs by words** | joining sentences of a human text (Unamuno joined: 0%) |
 
@@ -254,7 +256,7 @@ Worked examples, with every hand fix listed, are in [`examples/`](examples/).
 | | Rewrite | Rhythm | Check | Measured |
 |---|---|---|---|---|
 | **Español** | ✅ | ✅ «y», «;», «pero»… | ✅ | ✅ four essays, three detectors |
-| **English** | ✅ (the HIP adapter was trained in English) | ✅ "and", ";", "but"… | ✅ | not yet |
+| **English** | ✅ (the HIP adapter was trained in English) | ✅ "and", ";", "but"… | ✅ | ✅ ZeroGPT, two essays · GPTZero: next milestone |
 
 Other languages: the rewrite may work (the base model is multilingual), but `join.py`
 only knows Spanish and English connectors. Adding one is a small dictionary in
@@ -265,8 +267,8 @@ only knows Spanish and English connectors. Adding one is a small dictionary in
 | Detector | Status |
 |---|---|
 | **Grammarly** | ✅ 0% on three of four essays (10% on one run with an older version) |
-| **GPTZero** | ✅ 0% AI · 98% human |
-| **ZeroGPT** | ✅ 0%, with stage 4 (selection); 45.3% without it |
+| **GPTZero** | ✅ 0% AI · 98% human (Spanish) · English: next milestone ([what we tried](references/evidence.md)) |
+| **ZeroGPT** | ✅ 0% in Spanish and English, with stage 4 (selection) where needed |
 | QuillBot | not usable in Spanish: it scored the AI original 100% human |
 
 Each detector runs its own model, so a version that passes one may not pass another; the
@@ -304,8 +306,10 @@ No. It runs on CPU, at low priority, so your computer stays usable.
 
 ## Limits
 
-1. **Spanish essays, three detectors.** English has not been measured, nor emails,
-   marketing or technical writing.
+1. **GPTZero in English is the next milestone.** Its newer English model (4.1o) reads
+   base-model text from ~250 words on; three model families were tested
+   ([evidence](references/evidence.md)). Emails, marketing and technical writing are not
+   measured yet.
 2. **Rereading is not optional.** The base model sometimes changes a detail or flips an
    idea. The pipeline catches lost concepts, changed quotes and invented references; a
    person catches the rest.

@@ -24,6 +24,13 @@ free account has a few scans a day ("0 scans left" when they run out).
 - **Read "AI X%"**, not the mixed one. "AI 0% · Mixed 1% · Human 99%" means "entirely
   human"; the three always add up to 100%.
 - Text past 10,000 characters is not read: scan the rest separately.
+- **The percentages are confidence**, not a share of the words: "Human 100%" means the model
+  is sure the whole text is human.
+- **Spanish and English use different models** (4.1m and 4.1o). The English one recognizes
+  base-model paraphrases; the Spanish one does not.
+- **Measure whole documents.** A ~100-word paragraph can read 99% human while the same text
+  at 285 words reads 100% AI.
+- Free accounts get 10,000 credits a month (about one per word): a 600-word essay costs ~600.
 
 ## ZeroGPT
 
@@ -36,6 +43,8 @@ and highlights in yellow the sentences it flags: that is the list to regenerate.
   flagged whole.
 - **Measure the format you will hand in.** Headings and bibliography change the score.
 - **Brittle:** after any fix, measure again.
+- **Famous classics are false positives:** Emerson's *Self-Reliance* (1841) scored 64.5% AI.
+  Use an obscure human text as control (we used Hacker News comments from 2016: 1.5%).
 
 ## Always with two controls
 

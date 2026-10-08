@@ -124,6 +124,46 @@ public sites: **ZeroGPT 0%** (whole text), **Grammarly 0% and 0%** (halves), **G
 2% mixed · 98% human** (whole text, and the second half alone). 92 candidates were
 generated and more than 200 versions scored to get there.
 
+## 2d. English (October 7): ZeroGPT at 0%, and what GPTZero's English model sees
+
+Two AI-generated English essays: the repo's example on remote work (601 words) and one on
+electric vehicles (673 words). Same pipeline: base-model rewrite, ≤3-word fixes,
+`--pauses 2`, and for the second essay, selection of candidates for three paragraphs.
+
+**Controls.** Hacker News comments from March 2016 (human, pre-LLM, 363–766 words): ZeroGPT
+1.5%, GPTZero 100% human. **Emerson's *Self-Reliance* (1841) scored 64.5% AI in ZeroGPT**:
+famous classic texts are false positives, so they make bad controls. The two AI originals:
+100% in ZeroGPT, 100% AI in GPTZero.
+
+| | ZeroGPT | GPTZero (model 4.1o) |
+|---|---|---|
+| Remote work · original | 100% | 100% AI |
+| Remote work · rewritten, `--pauses 2` | **0%** | 100% AI |
+| Electric vehicles · original | 100% | — |
+| Electric vehicles · after selection (3 paragraphs) | **0%** | — |
+
+**GPTZero's newer English model reads base-model paraphrases: the next milestone.** Spanish is scored by GPTZero's
+model 4.1m, which reads our output as human; English is scored by model 4.1o, which does
+not. Every variant below scored 100% AI on the whole remote-work essay, with a valid
+control in the same session:
+
+| Variant (whole document) | GPTZero 4.1o |
+|---|---|
+| Qwen3-4B + HIP, one pass, unjoined and joined | 100% AI |
+| … two passes (faithful: 13/13 concepts, 0–32% copied) | 100% AI |
+| … temperature 1.3 | 100% AI |
+| … paragraphs mixed from the three versions above | 100% AI |
+| Llama 3.1 8B **base**, few-shot paraphrase | 100% AI |
+| Mistral 7B **base**, two temperatures | 100% AI |
+| Three middle paragraphs only (285 words) | 100% AI |
+| **One paragraph alone (~100 words)** | 76–99% human |
+
+A single paragraph passes only because it is short: from ~250 words on, GPTZero's English
+model recognizes text written by a language model, base or chat, from three model families.
+A different method is needed for it (for example, a base model fine-tuned on human English
+prose). Contributions welcome. Note: GPTZero's percentages are the model's confidence in its
+classification of the whole text, not a share of the words.
+
 ## 3. Why a base model
 
 Xu et al. (2026), *Base Models Look Human To AI Detectors*

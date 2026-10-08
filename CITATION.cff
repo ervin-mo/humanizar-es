@@ -12,7 +12,7 @@ authors:
   - alias: ervin-mo
 repository-code: "https://github.com/ervin-mo/humanizar-es"
 license: MIT
-version: 3.1.0
+version: 3.1.1
 date-released: 2026-10-07
 keywords:
   - AI humanizer

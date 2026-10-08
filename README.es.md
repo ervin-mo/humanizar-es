@@ -26,13 +26,15 @@ cada sesión.
 
 ## Resultados
 
-| Ensayo generado con IA (español) | Grammarly | ZeroGPT | GPTZero |
+| Ensayo generado con IA | Grammarly | ZeroGPT | GPTZero |
 |---|---|---|---|
 | **Aristóteles: acto y potencia** · 1,990 palabras · antes | 45% | 45.3% | 37% IA |
 | **Aristóteles: acto y potencia** · **después** | **0% y 0%** | **0%** | **0% IA · 98% humano** |
 | Turismo e IA en Chiapas · 1,150 palabras | 77% → **0%** | — | — |
 | Un modelo de IA de clasificación · 690 palabras | → **0%** | — | — |
 | Dragon Ball y su generación · 910 palabras | 84% → **10%** | — | — |
+| 🇬🇧 Trabajo remoto (inglés) · 601 palabras | — | 100% → **0%** | — |
+| 🇬🇧 Autos eléctricos (inglés) · 673 palabras | — | 100% → **0%** | — |
 
 *Octubre de 2026. El primer ensayo conserva 24 de 24 nombres, términos y cifras clave, y
 sus dos citas de Aristóteles palabra por palabra. Grammarly lee ~1,400 palabras, así que se
@@ -56,7 +58,7 @@ experimentos:
 
 | Detector | A qué reacciona | Qué **no** lo mueve |
 |---|---|---|
-| **GPTZero** | la huella del entrenamiento de chat (ajuste por instrucciones, RLHF) | — (aún sin desarmar) |
+| **GPTZero** | la huella del entrenamiento de chat; su modelo más nuevo en inglés (4.1o) también lee el texto de modelos base: nuestro siguiente objetivo | — |
 | **Grammarly** | el ritmo: oraciones de largo parejo, cada una con su punto | los espacios dobles (las faltas sí, pero dejan errores visibles) |
 | **ZeroGPT** | oraciones sueltas con estilo de libro de texto; califica **oración por oración y pesa por palabras** | unir oraciones de un texto humano (Unamuno unido: 0%) |
 
@@ -256,7 +258,7 @@ Hay ejemplos completos, con cada arreglo a mano anotado, en [`examples/`](exampl
 | | Reescribe | Ritmo | Revisa | Medido |
 |---|---|---|---|---|
 | **Español** | ✅ | ✅ «y», «;», «pero»… | ✅ | ✅ cuatro ensayos, tres detectores |
-| **English** | ✅ (el adaptador HIP se entrenó en inglés) | ✅ "and", ";", "but"… | ✅ | todavía no |
+| **English** | ✅ (el adaptador HIP se entrenó en inglés) | ✅ "and", ";", "but"… | ✅ | ✅ ZeroGPT, dos ensayos · GPTZero: siguiente objetivo |
 
 Otros idiomas: la reescritura puede funcionar (el modelo base es multilingüe), pero
 `join.py` solo conoce los conectores del español y del inglés. Agregar uno es un
@@ -267,8 +269,8 @@ diccionario pequeño en `scripts/join.py`; se aceptan pull requests.
 | Detector | Estado |
 |---|---|
 | **Grammarly** | ✅ 0% en tres de cuatro ensayos (10% en una corrida con una versión anterior) |
-| **GPTZero** | ✅ 0% IA · 98% humano |
-| **ZeroGPT** | ✅ 0%, con la etapa 4 (selección); 45.3% sin ella |
+| **GPTZero** | ✅ 0% IA · 98% humano (español) · Inglés: siguiente objetivo ([lo que probamos](references/evidence.md)) |
+| **ZeroGPT** | ✅ 0% en español y en inglés, con la etapa 4 (selección) cuando hace falta |
 | QuillBot | no sirve en español: dio 100% humano al original de IA |
 
 Cada detector usa su propio modelo: una versión que pasa uno puede no pasar otro; el primer
@@ -308,8 +310,9 @@ No. Corre en CPU, con prioridad baja, así que tu computadora sigue usable.
 
 ## Límites
 
-1. **Ensayos en español, tres detectores.** El inglés todavía no se mide, ni correos,
-   marketing o textos técnicos.
+1. **GPTZero en inglés es el siguiente objetivo.** Su modelo más nuevo en inglés (4.1o) lee el
+   texto de modelos base desde ~250 palabras; probamos tres familias de modelos
+   ([evidencia](references/evidence.md)). Correos, marketing y textos técnicos aún no se miden.
 2. **Releer no es opcional.** El modelo base a veces cambia un detalle o invierte una idea.
    El proceso atrapa conceptos perdidos, citas alteradas y referencias inventadas; lo demás
    lo atrapa una persona.

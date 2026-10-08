@@ -1,5 +1,18 @@
 # Changelog
 
+## 3.1.1 — October 7, 2026
+
+**English, measured.** Two AI-generated English essays went from 100% to **0% in ZeroGPT**
+(one of them with selection of three paragraphs). **GPTZero in English is the next
+milestone**: its newer English model (4.1o) scored 100% AI on every variant tested on the whole
+document - one and two passes of Qwen3-4B + HIP, temperature 1.3, mixed paragraphs, and two
+other base-model families (Llama 3.1 8B, Mistral 7B) - while a 2016 human control read 100%
+human. Spanish keeps passing all three detectors. Evidence: references/evidence.md, 2d.
+
+- Docs: English results, the GPTZero limitation in the README, the skill and the detectors
+  guide; GPTZero percentages explained as confidence; famous classics as ZeroGPT false
+  positives (Emerson, 64.5%).
+
 ## 3.1.0 — October 7, 2026
 
 **ZeroGPT passes.** The same 1,990-word essay now scores **0% in ZeroGPT, 0% and 0% in

@@ -2,7 +2,7 @@
 name: humanizar-es
 description: Rewrites AI-generated text (Spanish or English) so AI detectors read it as human - 0% in Grammarly, 0% in ZeroGPT and 0% AI / 98% human in GPTZero on the same test essay - without changing what it says and without adding typos. Runs locally with no API or cost, in four measured stages - a base model without chat training rewrites (rewrite.py), fidelity is guarded (concepts, quotes, invented references, copying; check.py), the rhythm is rebuilt in blocks of uneven length (join.py --pauses 2), and paragraphs a detector still flags are regenerated as candidates and selected (rewrite.py --candidates, --lead, --take). Use when asked to "humanize" text, "make it not detectable as AI", "pass Grammarly", "remove AI tells", "make it not sound like ChatGPT", or in Spanish "humaniza este texto", "que no lo detecte el detector de IA", "que no suene a ChatGPT".
 metadata:
-  version: "3.1.0"
+  version: "3.1.1"
   languages: en, es
   evidence: references/evidence.md
 ---
@@ -211,8 +211,10 @@ python3 <skill>/scripts/join.py 01-rewritten.txt -o 02-final.txt --concepts conc
 
 1. **Measured on Grammarly, GPTZero and ZeroGPT**, Spanish essays: Grammarly 0% on three of
    four (10% on an older run); one essay at 0% in all three at once, ZeroGPT only after
-   selection (step 9). English has not been measured. If the user needs another detector,
-   tell them before starting. Never promise a number.
+   selection (step 9). **English:** ZeroGPT 0% on two essays; **GPTZero in English is not
+   passed yet** - its model 4.1o recognizes base-model text (Qwen, Llama and Mistral tested)
+   from ~250 words on. If the text is English and the user needs GPTZero, say so **before
+   starting**. Never promise a number.
 2. **Detectors flag human text too** and change without notice. Hence the human control.
 3. **Only English and Spanish** have joining rules. Other languages: the rewrite may work,
    joining won't.
