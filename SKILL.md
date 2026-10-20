@@ -189,7 +189,8 @@ are already discarded.
 3. Adopt the one that passes and join again:
 
 ```bash
-python3 <skill>/scripts/rewrite.py 00-original.txt -o 01-rewritten.txt --take 4=01-rewritten.txt.candidates/p04-2.txt
+python3 <skill>/scripts/rewrite.py 00-original.txt -o 01-rewritten.txt --take 4=01-rewritten.txt.candidates/p04-2.txt \
+        --take 7=01-rewritten.txt.candidates/p07-1.txt   # one --take per paragraph
 python3 <skill>/scripts/join.py 01-rewritten.txt -o 02-final.txt --concepts concepts.txt --pauses 2
 ```
 

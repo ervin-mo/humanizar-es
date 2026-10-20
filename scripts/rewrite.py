@@ -307,8 +307,18 @@ def acceptable(p, r, wanted, concepts, max_copied):
     return ("(copied)" if share > max_copied else None), share
 
 
+# «1. Dimensión individual: conocerme.», «2.3. Método.», «2.- Fines.», «4) Cierre.»
+NUMBERED_HEADING = re.compile(r"\d+(?:\.\d+)*(?:\.-?|\))\s+(?P<rest>.+)")
+
+
 def is_title(p):
-    return len(p.split()) <= 12 and not p.rstrip().endswith((".", "!", "?", "…", ":"))
+    if len(p.split()) > 12:
+        return False
+    if not p.rstrip().endswith((".", "!", "?", "…", ":")):
+        return True
+    # a numbered heading that closes with a period: one sentence after the list number
+    m = NUMBERED_HEADING.fullmatch(p.strip())
+    return bool(m) and not re.search(r"[.!?…]\s", m.group("rest"))
 
 
 def main():
@@ -332,8 +342,9 @@ def main():
     ap.add_argument("--candidates", type=int, metavar="N",
                     help="with --only: write N acceptable versions of each paragraph to "
                     "<output>.candidates/ instead of changing the output")
-    ap.add_argument("--take", metavar="N=FILE",
-                    help="put the text of FILE in paragraph N of the output (no model needed)")
+    ap.add_argument("--take", metavar="N=FILE", action="append",
+                    help="put the text of FILE in paragraph N of the output (no model needed); "
+                    "repeat it to adopt several paragraphs at once")
     args = ap.parse_args()
 
     if args.take:
@@ -444,22 +455,31 @@ def write_candidates(args, i, p, wanted, concepts):
         print(f"Paragraph {i}: only {found} acceptable of {tries} tries", flush=True)
 
 
-def take(original, output, spec):
-    """Paragraph N of the output becomes the text of FILE; everything else stays."""
-    n, _, path = spec.partition("=")
-    if not n.isdigit() or not os.path.isfile(path):
-        print("ERROR: --take needs N=FILE with an existing FILE", file=sys.stderr)
-        return 2
+def take(original, output, specs):
+    """Paragraph N of the output becomes the text of FILE; everything else stays. All the
+    N=FILE pairs are checked before writing, so a bad one changes nothing."""
     with open(output, encoding="utf-8") as fh:
         paragraphs = [x.strip() for x in re.split(r"\n\s*\n", fh.read()) if x.strip()]
-    if not 1 <= int(n) <= len(paragraphs):
-        print(f"ERROR: {output} has {len(paragraphs)} paragraphs", file=sys.stderr)
-        return 2
-    with open(path, encoding="utf-8") as fh:
-        paragraphs[int(n) - 1] = " ".join(fh.read().split())
+    adopted = {}
+    for spec in specs:
+        n, _, path = spec.partition("=")
+        if not n.isdigit() or not os.path.isfile(path):
+            print(f"ERROR: --take needs N=FILE with an existing FILE: {spec}", file=sys.stderr)
+            return 2
+        if not 1 <= int(n) <= len(paragraphs):
+            print(f"ERROR: {output} has {len(paragraphs)} paragraphs: {spec}", file=sys.stderr)
+            return 2
+        if int(n) in adopted:
+            print(f"ERROR: --take gives paragraph {n} twice", file=sys.stderr)
+            return 2
+        adopted[int(n)] = path
+    for n, path in sorted(adopted.items()):
+        with open(path, encoding="utf-8") as fh:
+            paragraphs[n - 1] = " ".join(fh.read().split())
     with open(output, "w", encoding="utf-8") as fh:
         fh.write("\n\n".join(paragraphs) + "\n")
-    print(f"Paragraph {n} of {output} now comes from {path}")
+    for n, path in sorted(adopted.items()):
+        print(f"Paragraph {n} of {output} now comes from {path}")
     return 0
 
 

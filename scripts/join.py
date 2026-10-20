@@ -112,6 +112,17 @@ ABBREVIATION = re.compile(r"(?:^|\s)(?:Mr|Mrs|Ms|Dr|Prof|St|Sr|Sra|Srta|Dra|Lic|
                           r"approx|e\.g|i\.e|U\.S|p\.ej)\.$", re.I)
 
 
+# «1. Dimensión individual», «2.3. Método»: a list number opening a paragraph is not a sentence.
+LIST_NUMBER = re.compile(r"\d+(?:\.\d+)*\.$")
+
+
+def split_sentences(paragraph):
+    sentences = re.split(r"(?<=\.) (?=[A-ZÁÉÍÓÚÑ¿¡])", paragraph.strip())
+    if len(sentences) > 1 and LIST_NUMBER.fullmatch(sentences[0]):
+        sentences[:2] = [sentences[0] + " " + sentences[1]]
+    return sentences
+
+
 def detect_language(text):
     words = re.findall(r"[a-záéíóúñü]+", text.lower())
     counts = {lang: sum(w in c["hints"] for w in words) for lang, c in LANGUAGES.items()}
@@ -133,7 +144,7 @@ def proper_nouns(text, concepts=(), lang="es"):
 def join_paragraph(paragraph, proper, p=1.0, rnd=None, max_words=400, doubtful=None, lang="es"):
     rnd = rnd or random.Random(7)
     c = LANGUAGES[lang]
-    sentences = re.split(r"(?<=\.) (?=[A-ZÁÉÍÓÚÑ¿¡])", paragraph.strip())
+    sentences = split_sentences(paragraph)
     out = [sentences[0]]
     for s in sentences[1:]:
         prev = out[-1]
@@ -166,7 +177,7 @@ def join_with_pauses(paragraph, proper, pauses, rnd, doubtful=None, lang="es"):
     """2-3 periods per paragraph instead of one: blocks of uneven length; inside each
     block, sentences that open with a connector keep it after «;», the rest rotate
     among «y» and «;»."""
-    sentences = re.split(r"(?<=\.) (?=[A-ZÁÉÍÓÚÑ¿¡])", paragraph.strip())
+    sentences = split_sentences(paragraph)
     starts = split_blocks(sentences, pauses, rnd, lang) + [len(sentences)]
     blocks = []
     for a, b in zip(starts, starts[1:]):

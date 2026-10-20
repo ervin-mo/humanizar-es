@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+Three fixes found humanizing a 1,372-word Spanish assignment with numbered headings:
+
+- **`--take` repeated kept only the last one, silently.** Adopting 7 candidates in one
+  command changed 1 paragraph. `--take` now repeats (`--take 6=a.txt --take 18=b.txt`), checks
+  every pair before writing, and a bad pair or a paragraph given twice changes nothing.
+- **`join.py` broke numbered headings**: «1. Dimensión individual» came out as «1 y dimensión
+  individual», «2; dimensión intelectual». A list number opening a paragraph («1.», «2.3.»)
+  is no longer a sentence; a number closing one («el capítulo 3. Luego…») still is.
+- **`rewrite.py` rewrote numbered headings that end in a period** («1. Dimensión individual:
+  conocerme y orientar mi vida.»). A short paragraph (12 words or fewer) that opens with a
+  list number («1.», «2.3.», «2.-», «4)») and holds one sentence is now a heading.
+
 ## 3.2.0 — October 9, 2026
 
 **Three new fidelity guards**, found on a 3,433-word Spanish text of 60 short paragraphs

@@ -135,6 +135,18 @@ class Join(unittest.TestCase):
         r = join.join_text("Un título\n\nUno dos. Tres cuatro.\n\nCinco seis. Siete ocho.\n")
         self.assertEqual(r, "Un título\n\nUno dos y tres cuatro.\n\nCinco seis y siete ocho.\n")
 
+    def test_numbered_headings_stay_whole(self):
+        # «1. Dimensión individual» came out as «1 y dimensión individual» (or «2; dimensión»).
+        text = ("1. Dimensión individual: conocerme\n\n2.3. Método de trabajo\n\n"
+                "Uno dos tres. Cuatro cinco seis.\n")
+        for pauses in (None, 2):
+            r = join.join_text(text, pauses=pauses, lang="es")
+            self.assertIn("1. Dimensión individual: conocerme\n", r)
+            self.assertIn("2.3. Método de trabajo\n", r)
+        # a number closing a sentence still ends it
+        self.assertEqual(join.join_text("Leí el capítulo 3. Luego descansé.\n", lang="es"),
+                         "Leí el capítulo 3 y luego descansé.\n")
+
     def test_english_joins_with_and_and_respects_names(self):
         t = ("Dr. Smith moved to Boston. The city was cold. However, he stayed. "
              "I liked it. Moreover, the food was great. But winter came.\n")
@@ -455,6 +467,27 @@ class Rewrite(unittest.TestCase):
             self.assertEqual(new[0], read(os.path.join(folder, files[1])).strip())
             self.assertEqual(new[1].strip(), "Segundo, ya corregido.")
 
+    def test_take_adopts_several_paragraphs_at_once(self):
+        # Several --take in one command used to keep only the last one, silently.
+        with tempfile.TemporaryDirectory() as tmp:
+            out = os.path.join(tmp, "out.txt")
+            with open(out, "w", encoding="utf-8") as fh:
+                fh.write("Uno viejo.\n\nDos viejo.\n\nTres viejo.\n")
+            files = []
+            for n in (1, 3):
+                files.append(os.path.join(tmp, f"p{n}.txt"))
+                with open(files[-1], "w", encoding="utf-8") as fh:
+                    fh.write(f"Párrafo {n} nuevo.\n")
+            r = run(sys.executable, script("rewrite.py"), ORIGINAL, "-o", out,
+                    "--take", "1=" + files[0], "--take", "3=" + files[1])
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertEqual(read(out), "Párrafo 1 nuevo.\n\nDos viejo.\n\nPárrafo 3 nuevo.\n")
+            # one bad pair changes nothing
+            r = run(sys.executable, script("rewrite.py"), ORIGINAL, "-o", out,
+                    "--take", "2=" + files[0], "--take", "9=" + files[1])
+            self.assertEqual(r.returncode, 2)
+            self.assertIn("Dos viejo.", read(out))
+
     def test_candidates_need_only(self):
         with tempfile.TemporaryDirectory() as tmp:
             fake = self._echo_llama(tmp)
@@ -467,6 +500,16 @@ class Rewrite(unittest.TestCase):
     def test_recognizes_titles(self):
         self.assertTrue(rewrite.is_title("Turismo y tecnología"))
         self.assertFalse(rewrite.is_title("El turismo crece."))
+
+    def test_numbered_headings_with_a_period_are_titles(self):
+        # «1. Dimensión individual: conocerme y orientar mi vida.» used to be rewritten.
+        for t in ("1. Dimensión individual: conocerme y orientar mi vida.",
+                  "2.3. Método de trabajo.", "2.- Fines de la parroquia.", "4) Cierre."):
+            self.assertTrue(rewrite.is_title(t), t)
+        for t in ("1. El ser es. El no-ser no es.",  # two sentences: a numbered paragraph
+                  "3. La parroquia acompaña a las familias que llegan cada domingo desde lejos.",
+                  "En 1990. Todo cambió."):
+            self.assertFalse(rewrite.is_title(t), t)
 
     def _fake_llama(self, tmp):
         for f in (rewrite.BASE, rewrite.ADAPTER):
