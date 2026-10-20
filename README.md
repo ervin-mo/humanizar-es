@@ -252,6 +252,13 @@ python3 scripts/join.py rewritten.txt -o final.txt --concepts concepts.txt --pau
 Reread the adopted paragraph against the original: passing a detector is worth nothing if
 it dropped an idea.
 
+Before measuring, prepare what you paste: halves under 1,400 words, a check phrase that only
+the final has, and the clipboard in UTF-8 (a plain `pbcopy` breaks accents):
+
+```bash
+python3 scripts/halves.py final.txt --original my-text.txt --copy 1
+```
+
 Worked examples, with every hand fix listed, are in [`examples/`](examples/).
 
 ---

@@ -26,6 +26,7 @@ CONCEPTS_EN = os.path.join(EX_EN, "concepts.txt")
 
 sys.path.insert(0, SCRIPTS)
 import check  # noqa: E402
+import halves  # noqa: E402
 import join  # noqa: E402
 import rewrite  # noqa: E402
 
@@ -557,6 +558,54 @@ class Rewrite(unittest.TestCase):
                     "-o", os.path.join(tmp, "x.txt"), env=env)
             self.assertEqual(r.returncode, 2)
             self.assertIn("ERROR", r.stderr)
+
+
+class Halves(unittest.TestCase):
+    # A test essay was measured twice by mistake: the original pasted instead of the final
+    # (53%), and the final with its accents broken by pbcopy («a√±os», 0%).
+    BODY = ("Primera sección\n\n" + "Uno dos tres cuatro cinco seis siete ocho nueve diez once doce trece. " * 30
+            + "\n\nSegunda sección\n\n" + "Catorce quince dieciséis diecisiete dieciocho diecinueve veinte. " * 50
+            + "\n")
+
+    def test_cuts_before_the_heading_near_the_middle(self):
+        a, b = halves.split_halves(self.BODY, max_words=100)
+        self.assertTrue(b.startswith("Segunda sección\n\n"), b[:40])
+        self.assertTrue(a.startswith("Primera sección"))
+        self.assertEqual(halves.split_halves("Corto. Muy corto.\n"), ["Corto. Muy corto.\n"])
+
+    def test_check_phrase_is_only_in_the_final_and_the_original_warns(self):
+        original = "La experiencia es valiosa cuando me mantiene dispuesto a aprender y escuchar a otros."
+        final = "La experiencia es un bien si me ayuda a estar abierto a la enseñanza y a escuchar."
+        phrase = halves.check_phrase(final, original)
+        self.assertIsNotNone(phrase)
+        self.assertNotIn(" ".join(phrase.split()[:4]).lower(), original.lower())
+        self.assertIsNone(halves.check_phrase(original, original))
+        with tempfile.TemporaryDirectory() as tmp:
+            o = os.path.join(tmp, "o.txt")
+            with open(o, "w", encoding="utf-8") as fh:
+                fh.write(original + "\n")
+            r = run(sys.executable, script("halves.py"), o, "--original", o, "-o",
+                    os.path.join(tmp, "x"))
+            self.assertIn("WARNING", r.stdout)
+
+    @unittest.skipIf(os.name == "nt", "fake clipboard tools are shell scripts")
+    def test_copy_fails_when_the_clipboard_breaks_accents(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = os.path.join(tmp, "clip")
+            for name, body in (("pbcopy", f"iconv -f macintosh -t utf-8 > '{store}'"),  # the bug
+                               ("pbpaste", f"cat '{store}'")):
+                path = os.path.join(tmp, name)
+                with open(path, "w") as fh:
+                    fh.write("#!/bin/sh\n" + body + "\n")
+                os.chmod(path, 0o755)
+            env = dict(os.environ, PATH=tmp + os.pathsep + os.environ["PATH"])
+            text = os.path.join(tmp, "final.txt")
+            with open(text, "w", encoding="utf-8") as fh:
+                fh.write("Al llegar a los 61 años de edad considero que el crecimiento sigue.\n")
+            r = run(sys.executable, script("halves.py"), text, "--original", text, "-o",
+                    os.path.join(tmp, "x"), "--copy", "1", env=env)
+            self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+            self.assertIn("accents", r.stderr)
 
 
 class ModelDir(unittest.TestCase):

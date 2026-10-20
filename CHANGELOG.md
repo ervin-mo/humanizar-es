@@ -14,7 +14,17 @@ Three fixes found humanizing a 1,372-word Spanish assignment with numbered headi
   conocerme y orientar mi vida.»). A short paragraph (12 words or fewer) that opens with a
   list number («1.», «2.3.», «2.-», «4)») and holds one sentence is now a heading.
 
-## 3.2.0 — October 9, 2026
+## Unreleased
+
+**`scripts/halves.py`: a score counts only when it is the final's.** A test essay was measured
+wrong twice, and both looked like real results: the user pasted the original (53%, read as
+«it failed»), then a copy made with plain `pbcopy` broke every accent («a√±os»; 0%, read as
+«it passed»). The final, measured right, scored 0% and 0%. `halves.py` cuts the text in
+halves before a heading near the middle, prints a check phrase per half that only the final
+has (and warns when a half is all original), and `--copy N` puts a half on the clipboard in
+UTF-8 and reads it back. The skill makes it step 8.
+
+ — October 9, 2026
 
 **Three new fidelity guards**, found on a 3,433-word Spanish text of 60 short paragraphs
 (pastoral theology answers, lists and headings). Every concept survived the rewrite, yet the

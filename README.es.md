@@ -254,6 +254,14 @@ python3 scripts/join.py reescrito.txt -o final.txt --concepts concepts.txt --pau
 Relee el párrafo adoptado contra el original: pasar un detector no vale nada si se perdió
 una idea.
 
+Antes de medir, prepara lo que pegas: mitades de menos de 1,400 palabras, una frase de
+control que solo tiene la versión final y el portapapeles en UTF-8 (un `pbcopy` a secas
+rompe los acentos):
+
+```bash
+python3 scripts/halves.py final.txt --original mi-texto.txt --copy 1
+```
+
 Hay ejemplos completos, con cada arreglo a mano anotado, en [`examples/`](examples/).
 
 ---

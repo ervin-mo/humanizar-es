@@ -14,7 +14,11 @@ the recipe was measured and tuned for.
   20%: it can't be used to measure.
 
 - **Texts over ~1,400 words: measure them in two halves.** Otherwise Grammarly only reads
-  the beginning.
+  the beginning. `scripts/halves.py` cuts them before a heading near the middle.
+- **Check that the box holds the final, with its accents.** `halves.py` prints a check
+  phrase per half that only the final has; a score counts only if Grammarly shows it. On a
+  test essay the original was pasted by mistake (53%), and a copy with plain `pbcopy`
+  turned «años» into «a√±os» (0%): neither was the final's score.
 
 ## GPTZero
 

@@ -160,10 +160,23 @@ python3 <skill>/scripts/check.py 00-original.txt 02-final.txt --concepts concept
 
 Deliver `02-final.txt`, the fidelity table and the list of fixes, **in the format the
 user will hand in** (headings, bibliography): the context changes ZeroGPT's score. Warn
-that sentences stay longer than in a polished essay. If the text is over ~1,400 words, tell
-the user to measure it in Grammarly in two halves; GPTZero's free scan reads 10,000
+that sentences stay longer than in a polished essay. GPTZero's free scan reads 10,000
 characters. Ask them to measure in their detector **together with a text of their own
 written without AI**, and to tell you what is still flagged.
+
+**Prepare what they paste, never let them pick the file** (blocking):
+
+```bash
+python3 <skill>/scripts/halves.py 02-final.txt --original 00-original.txt --copy 1
+```
+
+It writes `02-final-MEASURE-1.txt` (and `-2` if the text is over 1,400 words, cut before a
+heading near the middle) and prints, for each half, a **check phrase** that only the final
+has. Give the user that phrase: **a score counts only if the detector shows it.** Measured on
+a test essay: the user pasted the original (53%, read as «it failed»), and a copy made with
+plain `pbcopy` broke every accent («a√±os»; 0%, read as «it passed»). `--copy N` puts half
+N on the clipboard in UTF-8 and reads it back; never copy with a bare `pbcopy`. When the
+user sends a score, check the phrase in their screenshot before reading the number.
 
 ### 9. Select, for what a detector still flags
 
@@ -236,6 +249,7 @@ risk before proceeding.
   fidelity, `--only`, `--candidates`, `--lead`, `--take`
 - `scripts/join.py` — step 7: rebuild the rhythm of each paragraph
 - `scripts/check.py` — concepts and negations, original against version
+- `scripts/halves.py` — step 8: halves to measure, check phrases, clipboard in UTF-8
 - `references/evidence.md` — every measurement
 - `references/detectors.md` — how to measure in Grammarly, GPTZero and ZeroGPT, with controls
 - `examples/` — worked examples in English and Spanish
