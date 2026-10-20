@@ -34,6 +34,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import unicodedata
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import check  # noqa: E402
@@ -173,16 +174,120 @@ REFERENCE = re.compile(r"\(([^()]*\b(?:[ivxlc]+|\d+)\b[^()]*)\)", re.I)
 def citation_problem(original, rewritten):
     """A quotation of the original that is no longer verbatim, or a reference in
     brackets the original never had («(De Anima, libro i, cap. vi)»). HIP did both on a
-    test essay; a changed quote or an invented source is worse than any detector score."""
+    test essay; a changed quote or an invented source is worse than any detector score.
+    It also wrote Bible verses that do not exist: «Mateo 9,36: "¿Cuántos pastores hay
+    entre vosotros?"» - a quotation must be words the original has."""
     norm = lambda s: " ".join(s.lower().split()).strip(" .,;:")  # noqa: E731
     have = norm(rewritten)
     for q in QUOTE.findall(original):
         if norm(q) not in have:
             return "(quote changed)"
+    whole = norm(re.sub(r"[\"“”«»]", "", original))
+    for q in QUOTE.findall(rewritten):  # quoting the original's own words is fine
+        if norm(q) not in whole:
+            return "(invented quote)"
     known = {norm(r) for r in REFERENCE.findall(original)}
     for r in REFERENCE.findall(rewritten):
         if norm(r) not in known:
             return "(invented reference)"
+    return None
+
+
+ACCENTED = "áéíóúüñ"
+
+
+def _plain(s):
+    return "".join(c for c in unicodedata.normalize("NFD", s) if unicodedata.category(c) != "Mn")
+
+
+def spelling_problem(original, rewritten):
+    """HIP sometimes eats Spanish accents: «comunio'n», «oraci n», «composicin»,
+    «acompanar», «Espiritu». On a 60-paragraph test text it did so in 11 of them; the
+    concepts survived (the comparison ignores accents), so nothing caught it."""
+    low = original.lower()
+    if not any(c in low for c in ACCENTED):
+        return None
+    if re.search(r"[^\W\d_]'[^\W\d_]", rewritten) and not re.search(r"\w'\w", original):
+        return "(broken accents)"
+    have = set(re.findall(r"\w+", rewritten.lower()))
+    for w in sorted(set(re.findall(r"\w+", low))):
+        if len(w) < 6 or not any(c in w for c in ACCENTED):
+            continue
+        bad = {_plain(w)}
+        for i, c in enumerate(w):
+            if c in ACCENTED:
+                bad.add(w[:i] + _plain(c) + w[i + 1:])
+                if i < len(w) - 1:  # «composicin»; a final «evaluará» -> «evaluar» is a word
+                    bad.add(w[:i] + w[i + 1:])
+        bad.discard(w)
+        if bad & have:
+            return "(accents lost: " + sorted(bad & have)[0] + ")"
+    n = sum(c in ACCENTED for c in low)  # a short sentence may reword its only accent away
+    a = n / max(1, len(original.split()))
+    b = sum(c in ACCENTED for c in rewritten.lower()) / max(1, len(rewritten.split()))
+    if n >= 4 and a >= 0.05 and b < 0.4 * a:
+        return "(accents lost)"
+    return None
+
+
+SPANISH_WORDS = set("de la el que y en los las del se un una por con para no es su al lo como "
+                    "más pero sus le ya o este sí porque esta entre cuando muy sin sobre también".split())
+ENGLISH_WORDS = set("the and of to in is that for with as it be are on this was by an at from "
+                    "or which not but have has their they its without people we our you "
+                    "would will should can there these those been were".split())
+
+
+def language_problem(original, rewritten):
+    """HIP was trained in English and sometimes translates mid-text even with the
+    original's opening words: «VER significa listening and understanding the situation»."""
+    def counts(t):
+        ws = re.findall(r"[^\W\d_]+", t.lower())
+        return sum(w in SPANISH_WORDS for w in ws), sum(w in ENGLISH_WORDS for w in ws)
+    oes, oen = counts(original)
+    res, ren = counts(rewritten)
+    # two words are enough in a short sentence: «VER significa listening and understanding
+    # the situation, without blaming people immediately» has no Spanish function word at all
+    if oes > oen and ren >= 2 and ren > 0.5 * res:
+        return "(switched to English)"
+    if oen > oes and res >= 2 and res > 0.5 * ren:
+        return "(switched to Spanish)"
+    return None
+
+
+NEGATION = re.compile(rf"(?<!\w)({check.NEGATIONS})(?!\w)")
+
+
+def negation_problem(original, rewritten):
+    """A try that drops the negations an idea rests on. «el criterio no sería solo el de
+    la asistencia» came out as «el criterio sería el de la asistencia»: same concepts,
+    opposite idea. Single negations are often reworded legitimately («no propiedades» ->
+    «en lugar de propiedades»), so only clear losses are rejected."""
+    t, u = check.norm(original), check.norm(rewritten)
+    o, r = len(NEGATION.findall(t)), len(NEGATION.findall(u))
+    if o >= 2 and r < o - max(1, o // 3):
+        return f"(negations lost: {o} -> {r})"
+    # «no se medirá solo por la asistencia, sino por…» -> «no se medirá en términos de
+    # asistencia, sino de…»: a negation is left, but «only» became «not at all»
+    # «no quedará un solo sector» is not that construction: it needs «sino» and no «un»
+    not_only = r"(?<!\w)no (\w+ ){0,3}(?<!un )(solo|solamente|unicamente)(?!\w).*(?<!\w)sino(?!\w)"
+    kept = r"(?<!\w)(solo|solamente|unicamente|simplemente|meramente|limit\w*|tambien|ademas)(?!\w)"
+    if re.search(not_only, t) and (r == 0 or not re.search(kept, u)):
+        return "(«no solo» lost)"
+    return None
+
+
+def repetition_problem(original, rewritten, n=COPY_RUN):
+    """HIP sometimes runs on, repeating a sentence it invented: «2.- La parroquia es el
+    lugar privilegiado para hacer proselitismo… 3.- La parroquia es el lugar privilegiado
+    para hacer proselitismo…». A run of n words said more times than in the original is
+    rejected; the original's own repetitions are allowed."""
+    def grams(t):
+        w = re.findall(r"\w+", check.norm(t))
+        return collections.Counter(tuple(w[i:i + n]) for i in range(len(w) - n + 1))
+    have, had = grams(rewritten), grams(original)
+    for g, k in have.items():
+        if k >= 2 and k > had[g]:
+            return "(repeated: " + " ".join(g) + ")"
     return None
 
 
@@ -193,9 +298,11 @@ def acceptable(p, r, wanted, concepts, max_copied):
     missing = wanted - concepts_in(r, concepts)
     if missing:
         return sorted(missing)[0], 0.0
-    problem = citation_problem(p, r)
-    if problem:
-        return problem, 0.0
+    for guard in (citation_problem, spelling_problem, language_problem, negation_problem,
+                  repetition_problem):
+        problem = guard(p, r)
+        if problem:
+            return problem, 0.0
     share = copied_share(p, r)
     return ("(copied)" if share > max_copied else None), share
 

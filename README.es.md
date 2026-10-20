@@ -79,6 +79,11 @@ Cada párrafo recibe una pasada, y el intento se descarta y se repite cuando:
   tenía (en un ensayo de prueba el modelo escribió «(De Anima, libro i, cap. vi)», que no
   existe);
 - **copia el original**: más del 60% de sus palabras en tramos de 8 o más palabras idénticas;
+- **se come los acentos** («comunio'n», «oraci n», «composicin», «Espiritu»);
+- **cambia de idioma** a media frase («VER significa listening and understanding…»);
+- **pierde las negaciones** de las que depende una idea («el criterio *no* sería solo la
+  asistencia» → «el criterio sería el de la asistencia»);
+- **inventa una cita** o **repite una frase que se inventó**;
 - sale truncado o se desboca.
 
 Luego `check.py` compara conceptos y negaciones, y una persona corrige **de una a tres
@@ -314,7 +319,8 @@ No. Corre en CPU, con prioridad baja, así que tu computadora sigue usable.
    texto de modelos base desde ~250 palabras; probamos tres familias de modelos
    ([evidencia](references/evidence.md)). Correos, marketing y textos técnicos aún no se miden.
 2. **Releer no es opcional.** El modelo base a veces cambia un detalle o invierte una idea.
-   El proceso atrapa conceptos perdidos, citas alteradas y referencias inventadas; lo demás
+   El proceso atrapa conceptos perdidos, citas alteradas, referencias inventadas, acentos
+   perdidos, cambios de idioma y negaciones perdidas; lo demás
    lo atrapa una persona.
 3. **Seleccionar cuesta tiempo.** Cada candidato es una corrida del modelo (30–60 s por
    párrafo en una M4).

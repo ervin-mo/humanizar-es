@@ -1,5 +1,36 @@
 # Changelog
 
+## 3.2.0 — October 9, 2026
+
+**Three new fidelity guards**, found on a 3,433-word Spanish text of 60 short paragraphs
+(pastoral theology answers, lists and headings). Every concept survived the rewrite, yet the
+reread found what the guards could not see:
+
+- **Accents eaten** in 11 of 60 paragraphs: «comunio'n», «oraci n», «composicin»,
+  «acompanar», «Espiritu». The concept check ignores accents by design, so it passed them.
+  A try is now rejected when an accented word of the original (6+ letters) comes back
+  without its accent or missing that letter, when an apostrophe splits a word, or when the
+  accent density falls below 40% of the original's.
+- **Switched to English** in 2 paragraphs («VER significa listening and understanding the
+  situation…»), despite the original's opening words. Rejected by function-word counts.
+- **Negation dropped**: «el criterio no sería solo el de la asistencia» came out as «el
+  criterio sería el de la asistencia». A try is rejected when it loses a «no solo» with no
+  negation left, or a third of two or more negations. A single reworded negation («no
+  propiedades» → «en lugar de propiedades») still passes.
+- **Invented quotations**: a candidate wrote «Mateo 9,36: "¿Cuántos pastores hay entre
+  vosotros?"», a verse that does not exist. A quotation must now be words the original has
+  (quoting the original's own phrase, «"siempre lo hemos hecho así"», still passes).
+- **Runaway repetition**: a candidate appended «2.- La parroquia es el lugar privilegiado
+  para hacer proselitismo» twice. A run of 8 words said more times than in the original is
+  rejected.
+- Calibrated with no false rejection on the Spanish and English examples.
+
+Measured on that text, rewritten, reviewed, joined (`--pauses 2`) and with selection on three
+paragraphs ZeroGPT flagged: **Grammarly 0%, 0% and 8%** (three thirds, ~1,100 words each),
+**ZeroGPT 0%, 0%, 0%**, **GPTZero 0/17/27% AI** (verdict "entirely human" on all three),
+20/20 concepts. Human control: ZeroGPT 0%, GPTZero 100% human. The AI original also read
+low (ZeroGPT 0-10%, GPTZero 3% AI): it was not raw chat output, so it is a weak AI control.
+
 ## 3.1.1 — October 7, 2026
 
 **English, measured.** Two AI-generated English essays went from 100% to **0% in ZeroGPT**

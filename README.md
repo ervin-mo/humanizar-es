@@ -77,6 +77,11 @@ Each paragraph gets one pass, and a try is rejected and retried when it:
 - **changes a quotation** of the original or **adds a reference** the original never had
   (on a test essay the model wrote «(De Anima, libro i, cap. vi)», which does not exist);
 - **copies the original**: more than 60% of its words in runs of 8+ identical words;
+- **eats Spanish accents** («comunio'n», «oraci n», «composicin», «Espiritu»);
+- **switches language** mid-sentence («VER significa listening and understanding…»);
+- **drops the negations** an idea rests on («el criterio *no* sería solo la asistencia» →
+  «el criterio sería el de la asistencia»);
+- **invents a quotation** or **repeats a sentence it made up**;
 - comes out truncated or runs away.
 
 `check.py` then compares concepts and negations, and a person fixes **one to three words**
@@ -283,8 +288,8 @@ text are the contribution we need most.
 Free and keyless. The model downloads once and runs on your computer.
 
 **Does it change what my text says?**
-It is built not to: tries that lose a concept, change a quote or invent a reference are
-rejected, `check.py` compares concepts and negations, and you reread every paragraph.
+It is built not to: tries that lose a concept, change a quote, invent a reference, eat
+accents, switch language or drop key negations are rejected, `check.py` compares concepts and negations, and you reread every paragraph.
 
 **Does it add typos on purpose, like other "humanizers"?**
 No. It changes who wrote the sentences and their rhythm, not the spelling.

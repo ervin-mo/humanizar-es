@@ -323,6 +323,88 @@ class Rewrite(unittest.TestCase):
         self.assertEqual(rewrite.citation_problem(o, ok.replace("(Física, III, 1)",
                                                                 "(De Anima, libro i, cap. vi)")),
                          "(invented reference)")
+        self.assertEqual(rewrite.citation_problem(
+            "Mateo 9,36: la mirada compasiva de Jesús sobre las personas cansadas.",
+            'Mateo 9,36: "¿Cuántos pastores hay entre vosotros?", dijo Jesús.'), "(invented quote)")
+        self.assertIsNone(rewrite.citation_problem(
+            "La frase siempre lo hemos hecho así muestra una mentalidad.",
+            'La frase "siempre lo hemos hecho así" revela una mentalidad.'))
+
+    def test_spelling_problem(self):
+        o = ("La comunicación pastoral necesita oración y discernimiento; la composición "
+             "de la comunidad y el Espíritu nos acompañan.")
+        ok = ("La comunicación en la pastoral pide oración y discernimiento; el Espíritu y "
+              "la composición de la comunidad nos acompañan.")
+        self.assertIsNone(rewrite.spelling_problem(o, ok))
+        for broken, why in (("comunicación", "comunicacion"), ("composición", "composicin"),
+                            ("Espíritu", "Espiritu"), ("acompañan", "acompanan")):
+            self.assertEqual(rewrite.spelling_problem(o, ok.replace(broken, why)),
+                             f"(accents lost: {why.lower()})")
+        self.assertEqual(rewrite.spelling_problem(o, ok.replace("oración", "oracio'n")),
+                         "(broken accents)")
+        self.assertIsNotNone(rewrite.spelling_problem(o, ok.replace("oración", "oraci n")
+                                                      .replace("comunicación", "comunicaci n")
+                                                      .replace("composición", "composici n")
+                                                      .replace("Espíritu", "Esp ritu")))
+        # a final accent dropped can leave a real word: «evaluará» -> «evaluar» is fine
+        self.assertIsNone(rewrite.spelling_problem("El consejo evaluará el avance.",
+                                                   "El consejo va a evaluar el avance."))
+        self.assertIsNone(rewrite.spelling_problem("The council will review it.",
+                                                   "The council's going to review it."))
+
+    def test_language_problem(self):
+        o = "VER significa escuchar y analizar la situación, sin culpar de inmediato a las personas."
+        self.assertIsNone(rewrite.language_problem(
+            o, "VER es escuchar la situación y analizarla antes de culpar a las personas."))
+        self.assertEqual(rewrite.language_problem(
+            o, "VER significa listening and understanding the situation before jumping to "
+               "the conclusion that people are guilty."), "(switched to English)")
+        self.assertEqual(rewrite.language_problem(
+            o, "VER significa listening and understanding the situation, without blaming "
+               "people immediately."), "(switched to English)")
+        self.assertIsNone(rewrite.language_problem(
+            "El equipo usa la plataforma en línea con su CRM.",
+            "El equipo trabaja en la plataforma online con el CRM de la empresa."))
+        self.assertEqual(rewrite.language_problem(
+            "The council meets in the hall and decides the plan.",
+            "El consejo se reúne en el salón y decide el plan de la parroquia."),
+            "(switched to Spanish)")
+
+    def test_negation_problem(self):
+        o = "El criterio no sería solo el de la asistencia, sino la calidad de la escucha."
+        self.assertIsNone(rewrite.negation_problem(
+            o, "El criterio no se limitaría a la asistencia: contaría la calidad de la escucha."))
+        self.assertIsNone(rewrite.negation_problem(
+            o, "El criterio sería la asistencia y también, sobre todo, la escucha, no solo eso."))
+        self.assertEqual(rewrite.negation_problem(
+            o, "El criterio sería el de la asistencia, también de la escucha."), "(«no solo» lost)")
+        self.assertEqual(rewrite.negation_problem(
+            "El fruto no se medirá solo por la asistencia, sino por la comunión.",
+            "No se medirá el fruto en términos de asistencia, sino de comunión."), "(«no solo» lost)")
+        two = "No hay coro para competir ni grupos sin rumbo; nadie trabaja solo."
+        self.assertEqual(rewrite.negation_problem(two, "Hay coro para competir y grupos con rumbo."),
+                         "(negations lost: 4 -> 0)")
+        # a single negation reworded is legitimate
+        self.assertIsNone(rewrite.negation_problem("Son dones, no propiedades privadas.",
+                                                   "Son dones en lugar de propiedades privadas."))
+        self.assertIsNone(rewrite.negation_problem(
+            "Que no solo sean destinatarios, sino también participantes.",
+            "Que no sean simplemente destinatarios, sino que participen."))
+        self.assertIsNone(rewrite.negation_problem(
+            "Cada uno tendrá su tarea, pero no quedará un solo sector con la exclusividad.",
+            "Cada uno tendrá su tarea, pero ningún sector se quedará con la exclusividad."))
+
+    def test_repetition_problem(self):
+        o = "Activismo sin orientación misionera: no hay un proceso para anunciar el Evangelio."
+        bad = ("Activismo sin orientación misionera: no hay proceso para anunciar el Evangelio. "
+               "2.- La parroquia es el lugar privilegiado para hacer proselitismo. "
+               "3.- La parroquia es el lugar privilegiado para hacer proselitismo.")
+        self.assertTrue(rewrite.repetition_problem(o, bad).startswith("(repeated:"))
+        self.assertIsNone(rewrite.repetition_problem(o, bad.split(" 2.-")[0]))
+        # the original's own repetition is allowed
+        rep = ("Alejamiento de jóvenes y familias jóvenes; el alejamiento de jóvenes y familias "
+               "jóvenes y el declive de la participación juvenil.")
+        self.assertIsNone(rewrite.repetition_problem(rep, rep.replace("el declive", "la caída")))
 
     def _echo_llama(self, tmp):
         """A fake llama that writes back a different, faithful version each call."""
