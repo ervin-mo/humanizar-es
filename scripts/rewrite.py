@@ -154,17 +154,8 @@ def concepts_in(text, concepts):
     return {n for n, variants in concepts if any(check.pattern(v).search(t) for v in variants)}
 
 
-COPY_RUN = 8  # words in a row that count as copied, not as a shared phrase or a name
-
-
-def copied_share(original, rewritten, run=COPY_RUN):
-    """Share of the rewritten words that sit in runs of `run`+ words copied from the
-    original. Calibrated on four essays: HIP's real rewrites copy 0.12-0.45; a paragraph
-    it left half untouched, 0.80."""
-    a = re.findall(r"\w+", original.lower())
-    b = re.findall(r"\w+", rewritten.lower())
-    sm = difflib.SequenceMatcher(None, a, b, autojunk=False)
-    return sum(m.size for m in sm.get_matching_blocks() if m.size >= run) / max(1, len(b))
+COPY_RUN = check.COPY_RUN
+copied_share = check.copied_share
 
 
 QUOTE = re.compile(r'["“«]([^"”»]{12,})["”»]')
@@ -291,6 +282,40 @@ def repetition_problem(original, rewritten, n=COPY_RUN):
     return None
 
 
+# Spanish of Mexico: «venid», «vuestra», «os prometisteis», «coincidáis» are Spain's
+# «vosotros». HIP writes them now and then; they read as a different voice in a text that
+# never used them (a prayer came back as «venid y darme la fuerza de creer en vuestra
+# misericordia»).
+VOSOTROS = re.compile(
+    r"(?<!\w)(?:vuestr[oa]s?|sois|veis|os|[^\W\d_]+[áé]is|"
+    r"venid|recibidme|dadme|escuchad|mirad|acompañad|seguid|tened|sed|haced|ved|perdonad)(?!\w)",
+    re.I)
+
+
+def _looks_spanish(text):
+    ws = re.findall(r"[^\W\d_]+", text.lower())
+    return sum(w in SPANISH_WORDS for w in ws) > sum(w in ENGLISH_WORDS for w in ws)
+
+
+def vosotros_problem(original, rewritten):
+    if _looks_spanish(original) and not VOSOTROS.search(original):
+        m = VOSOTROS.search(rewritten)
+        if m:
+            return "(vosotros form: " + m.group(0) + ")"
+    return None
+
+
+def proper_accent_problem(original, rewritten):
+    """«Ruiz Pérez» came back as «Ruiz Perez». spelling_problem only looks at words of
+    6+ letters; a name of 4-5 letters («Pérez», «Ríos», «Jesús») slipped through."""
+    low = {w.lower() for w in re.findall(r"\w+", rewritten)}
+    plain = {_plain(w) for w in low}
+    for w in sorted(set(re.findall(r"\b[A-ZÁÉÍÓÚÑ][^\W\d_]*[áéíóúüñ][^\W\d_]*", original))):
+        if len(w) >= 4 and w.lower() not in low and _plain(w.lower()) in plain:
+            return "(accent lost in a name: " + w + ")"
+    return None
+
+
 def acceptable(p, r, wanted, concepts, max_copied):
     """(problem, copied share) for one try: problem is None when the try can be used."""
     if len(r.split()) < 0.6 * len(p.split()) or len(r.split()) > 1.6 * len(p.split()) + 10:
@@ -298,8 +323,8 @@ def acceptable(p, r, wanted, concepts, max_copied):
     missing = wanted - concepts_in(r, concepts)
     if missing:
         return sorted(missing)[0], 0.0
-    for guard in (citation_problem, spelling_problem, language_problem, negation_problem,
-                  repetition_problem):
+    for guard in (citation_problem, spelling_problem, proper_accent_problem, language_problem,
+                  vosotros_problem, negation_problem, repetition_problem):
         problem = guard(p, r)
         if problem:
             return problem, 0.0
@@ -314,6 +339,11 @@ NUMBERED_HEADING = re.compile(r"\d+(?:\.\d+)*(?:\.-?|\))\s+(?P<rest>.+)")
 def is_title(p):
     if len(p.split()) > 12:
         return False
+    # «Introducción:», «A mis seres queridos:» - a short line closing with a colon is a
+    # heading or a greeting, not prose. HIP turned «Introducción:» into «Introducción: Abstract».
+    if (p.rstrip().endswith(":") and len(p.split()) <= 8
+            and not re.search(r"[.!?…]\s", p.strip())):
+        return True
     if not p.rstrip().endswith((".", "!", "?", "…", ":")):
         return True
     # a numbered heading that closes with a period: one sentence after the list number
@@ -329,6 +359,10 @@ def main():
                     help="file of concepts that must not be lost")
     ap.add_argument("--tries", "--intentos", dest="tries", type=int, default=6,
                     help="tries per paragraph (6); only a paragraph that fails uses more than one")
+    ap.add_argument("--rescue", type=int, default=2,
+                    help="extra rounds (2) for a paragraph with no usable try: the temperature "
+                    "goes up 0.1 each round, so the paragraph is rewritten instead of "
+                    "staying as the original")
     ap.add_argument("--max-copied", dest="max_copied", type=float, default=0.6,
                     help="retry a try that copies more than this share of the original (0.6)")
     ap.add_argument("--threads", "--hilos", dest="threads", type=int, default=4,
@@ -392,18 +426,27 @@ def main():
             output.append(kept[i - 1])
             continue
         chosen, mostly_copied, lost = None, [], collections.Counter()
-        for n in range(1, args.tries + 1):
-            r = restore_percent_signs(p, rewrite_paragraph(p, args.threads, args.temperature,
-                                                           args.lead))
-            problem, share = acceptable(p, r, wanted, concepts, args.max_copied)
-            if problem == "(copied)":
-                mostly_copied.append((share, r))
-                continue
-            if problem:
-                lost[problem] += 1
-                continue
-            chosen = r
-            break
+        n, rescued = 0, 0
+        for rnd in range(args.rescue + 1):
+            temperature = min(1.4, args.temperature + 0.1 * rnd)
+            for n in range(1, args.tries + 1):
+                r = restore_percent_signs(p, rewrite_paragraph(p, args.threads, temperature,
+                                                               args.lead))
+                problem, share = acceptable(p, r, wanted, concepts, args.max_copied)
+                if problem == "(copied)":
+                    mostly_copied.append((share, r))
+                    continue
+                if problem:
+                    lost[problem] += 1
+                    continue
+                chosen = r
+                break
+            if chosen is not None:
+                rescued = rnd
+                break
+            if rnd < args.rescue:
+                print(f"Paragraph {i}: no usable try, round {rnd + 2} at temperature "
+                      f"{min(1.4, args.temperature + 0.1 * (rnd + 1)):.1f}", flush=True)
         if chosen is None and mostly_copied:
             share, chosen = min(mostly_copied, key=lambda c: c[0])
             copied.append(f"{i} ({share:.0%})")
@@ -413,7 +456,8 @@ def main():
         output.append(chosen)
         with open(args.output, "w", encoding="utf-8") as fh:  # saves after every paragraph
             fh.write("\n\n".join(output + (kept or paragraphs)[i:]) + "\n")
-        status = "unchanged" if chosen == p else f"done, try {n}" if n > 1 else "done"
+        status = ("unchanged" if chosen == p else f"done, rescue {rescued}" if rescued
+                  else f"done, try {n}" if n > 1 else "done")
         print(f"Paragraph {i} of {len(paragraphs)}: {status} ({time.time() - t0:.0f} s)", flush=True)
 
     if args.candidates:
@@ -422,15 +466,22 @@ def main():
         return 0
     print(f"\nWritten: {args.output}")
     if untouched:
+        nums = ",".join(u.split(" ")[0] for u in untouched)
         print("WARNING: kept as the original, the concept they kept losing in brackets: "
               + "; ".join(untouched) + ". Check the spelling of that concept in the concepts file.")
+        print("ACTION REQUIRED: these paragraphs are still the ORIGINAL text, so a detector will "
+              "flag them. Redo them before joining:\n"
+              f"  python3 {sys.argv[0]} {args.original} -o {args.output} "
+              + (f"--concepts {args.concepts} " if args.concepts else "")
+              + f"--only {nums} --tries {args.tries * 2} --temperature 1.2\n"
+              "or, if one concept keeps failing, fix its spelling in the concepts file first.")
     if copied:
         print("WARNING: every try copied long stretches of the original; the least copied one "
               "was kept: " + "; ".join(copied) + ". Redo them with --only and more --tries.")
     print("Next step: reread against the original and fix by hand what changed (HIP\n"
           "sometimes changes a detail, like «they clean» into «they wash the dishes»);\n"
-          "then scripts/join.py.")
-    return 0
+          "then scripts/join.py --original " + args.original + ".")
+    return 3 if untouched else 0
 
 
 def write_candidates(args, i, p, wanted, concepts):

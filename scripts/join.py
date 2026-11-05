@@ -243,6 +243,11 @@ def main():
                     help="maximum words per joined sentence")
     ap.add_argument("--lang", "--idioma", dest="lang", choices=sorted(LANGUAGES),
                     help="es or en (detected by default)")
+    ap.add_argument("--original", help="the original text: join.py refuses to run if a "
+                    "paragraph of the input is still the original (rewrite.py could not rewrite "
+                    "it), because joining it would not hide it from a detector")
+    ap.add_argument("--allow-original", dest="allow_original", action="store_true",
+                    help="with --original: run anyway")
     ap.add_argument("--pauses", "--pausas", dest="pauses", type=int,
                     help="leave this many periods per paragraph (2 or 3) in blocks of uneven "
                     "length, instead of joining everything; reads better")
@@ -250,6 +255,17 @@ def main():
 
     with open(args.input, encoding="utf-8") as fh:
         text = fh.read()
+    if args.original and not args.allow_original:
+        with open(args.original, encoding="utf-8") as fh:
+            same = check.still_original(fh.read(), text)
+        if same:
+            print("ERROR: these paragraphs of the input are still the ORIGINAL, nothing was "
+                  "written: " + ", ".join(f"{n} ({share:.0%} copied)" for n, share in same),
+                  file=sys.stderr)
+            print("Redo them first: rewrite.py ORIGINAL -o " + args.input + " --only "
+                  + ",".join(str(n) for n, _ in same) + " --tries 12 --temperature 1.2",
+                  file=sys.stderr)
+            return 2
     concepts = check.load_concepts(args.concepts) if args.concepts else []
     doubtful = []
     lang = args.lang or detect_language(text)

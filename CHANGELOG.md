@@ -2,6 +2,32 @@
 
 ## Unreleased
 
+**A paragraph that stays as the original no longer slips through.** Humanizing a 1,469-word
+.docx assignment, paragraph 4 came back **identical to the original** (every try lost a
+concept or invented a quote), `rewrite.py` printed one WARNING line and exited 0, and the
+unchanged text would have been joined and delivered. Found by reading the paragraphs against
+the original; fixed so the tools do it:
+
+- **`rewrite.py --rescue N` (2).** A paragraph with no usable try gets extra rounds, the
+  temperature up 0.1 each, before giving up.
+- **Exit code 3 and `ACTION REQUIRED`** with the exact `--only` command when a paragraph still
+  ends as the original.
+- **`check.py` and `join.py --original`.** `check.py` lists the paragraphs that are still the
+  original (copy 60%+ of it) and exits 1; `join.py --original` refuses to join them
+  (`--allow-original` overrides). `copied_share` moved to `check.py`, shared by all three.
+- **Headings with a colon are titles.** «Introducción:» was not recognized, went to the model
+  and came back as «Introducción: Abstract»; «A mis seres queridos:» was lost the same way.
+- **Two new guards on every try:** Spain's *vosotros* («venid y dadme… en vuestra
+  misericordia», «aunque no coincidáis») and an accent lost in a short name («Ruiz Pérez» →
+  «Ruiz Perez»; `spelling_problem` only looked at words of 6+ letters).
+- **`scripts/docx_tools.py`**: `extract` the body of a .docx and `build` it back with the
+  same formatting, header, titles and bibliography untouched (indents kept, text escaped,
+  a short lead-in sentence mergeable with its paragraph). Checked on the real assignment:
+  same blocks as the hand-made extraction, byte-identical .docx.
+- 65 tests (7 new, each fails with the previous code).
+
+## Unreleased
+
 Three fixes found humanizing a 1,372-word Spanish assignment with numbered headings:
 
 - **`--take` repeated kept only the last one, silently.** Adopting 7 candidates in one

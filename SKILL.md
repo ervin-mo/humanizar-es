@@ -48,6 +48,23 @@ it says `python3`; everything else is the same. No key or account is needed.
 If the text came through chat, write it to `00-original.txt`, with paragraphs separated by
 a blank line. Never overwrite the original.
 
+**If it lives in a `.docx`** (an assignment, a client's document), don't copy by hand and don't
+retype the header: `docx_tools.py` takes out only the body and puts the result back with the
+same formatting, header and bibliography untouched:
+
+```bash
+python3 <skill>/scripts/docx_tools.py extract doc.docx -o 00-original.txt --map mapa.json \
+        --start "Introducción:" --stop "Bibliografía" --merge-short 25
+# ... steps 4 to 8 on 00-original.txt ...
+python3 <skill>/scripts/docx_tools.py build doc.docx --map mapa.json --text 02-final.txt -o doc-final.docx
+```
+
+`--start`/`--stop` are the first paragraph that begins with that text (a header line like
+«Introducción a la Filosofía» also begins with «Introducción»: include the colon or more words).
+Titles stay one block each and are never replaced. `--merge-short 25` joins a lone short
+sentence with the paragraph after it. Open the `.docx` yourself before delivering it: this
+script checks the XML, not how Word draws it.
+
 ### 2. Ask what it's for
 
 If it's graded academic work, or work where AI use must be disclosed, say so before going
@@ -92,9 +109,15 @@ its output: `rewrite.py` saves the file after every paragraph and prints its pro
 python3 <skill>/scripts/rewrite.py 00-original.txt -o 01-rewritten.txt --concepts concepts.txt
 ```
 
-At the end it reports which paragraphs it left as the original and the concept they kept
-losing (check its spelling in `concepts.txt`), and which ones copied long stretches of the
-original in every try. Rerun only those paragraphs, with more `--tries`.
+A paragraph with no usable try gets **rescue rounds** (`--rescue`, 2 by default): the temperature
+goes up 0.1 each round, so it ends up rewritten instead of staying as the original. If one
+**still** ends as the original text, `rewrite.py` **exits with code 3** and prints
+`ACTION REQUIRED` with the exact `--only` command: **a paragraph that stays as the original is
+AI text, a detector flags it and joining it hides nothing**. Run that command (check the
+spelling of the concept it names in `concepts.txt` first), then read again. It also lists the
+paragraphs that copied long stretches of the original in every try: redo those with `--only`
+and more `--tries`. It never touches a title or a greeting («Introducción:», «A mis seres
+queridos:»): they come back exactly as they were.
 
 ### 6. Review and fix, BEFORE joining (blocking)
 
@@ -111,6 +134,13 @@ really changed. Typical slips:
 - wrong gender, number or date («siglo X»);
 - a lost `%` written in words ("sixty percent" → "60"), a typo or a dropped accent;
 - a sentence that doesn't make sense.
+
+The model's guards already reject, in each try: lost concepts, changed quotes, invented sources,
+lost accents (including names of 4-5 letters: «Pérez»→«Perez»), a switch of language and
+Spain's *vosotros* («venid», «vuestra», «coincidáis», «os»). They don't catch a **changed gender**
+(«lo suficientemente buena» for a male writer), a flipped verb («afrontar la muerte»→«luchar
+contra la muerte»), a wrong word that still fits the grammar («el cuerpo que se *desangra*»
+for «muere») or a lost idea: those are what you look for.
 
 Show the list to the user and fix **only the minimal culprit word or phrase**, with exact
 replacements in `01-rewritten.txt`. Don't rewrite whole sentences or polish style: every
@@ -134,9 +164,12 @@ Grammarly: its last half scored 3% twice while it carried hand fixes of four or 
 ### 7. Rebuild the rhythm
 
 ```bash
-python3 <skill>/scripts/join.py 01-rewritten.txt -o 02-final.txt --concepts concepts.txt --pauses 2
+python3 <skill>/scripts/join.py 01-rewritten.txt -o 02-final.txt --concepts concepts.txt --pauses 2 \
+        --original 00-original.txt
 ```
 
+With `--original`, `join.py` **refuses to run** (exit 2, nothing written) if a paragraph of the input is
+still the original; redo it with `--only` first. `check.py` reports the same in step 8 and exits 1.
 It detects English or Spanish (force it with `--lang en|es`). If it warns about words it
 lowercased, check which are proper names; add them to `concepts.txt` and run it again.
 `--pauses 2` leaves two or three periods per paragraph, in blocks of
@@ -249,6 +282,7 @@ risk before proceeding.
   fidelity, `--only`, `--candidates`, `--lead`, `--take`
 - `scripts/join.py` — step 7: rebuild the rhythm of each paragraph
 - `scripts/check.py` — concepts and negations, original against version
+- `scripts/docx_tools.py` — step 1 and the end: take the body out of a `.docx` and put the final text back with the same formatting
 - `scripts/halves.py` — step 8: halves to measure, check phrases, clipboard in UTF-8
 - `references/evidence.md` — every measurement
 - `references/detectors.md` — how to measure in Grammarly, GPTZero and ZeroGPT, with controls

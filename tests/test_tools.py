@@ -273,8 +273,11 @@ class Rewrite(unittest.TestCase):
                 fh.write("encina\nbellota\n")
             env = dict(os.environ, HUMANIZE_MODEL_DIR=tmp, HUMANIZE_LLAMA=fake)
             r = run(sys.executable, script("rewrite.py"), src, "-o", out, "--concepts", conc,
-                    "--tries", "3", "--threads", "1", env=env)
-            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+                    "--tries", "3", "--rescue", "0", "--threads", "1", env=env)
+            # a paragraph left as the ORIGINAL is not a success: exit 3 and the command to redo it
+            self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
+            self.assertIn("ACTION REQUIRED", r.stdout)
+            self.assertIn("--only 2", r.stdout)
             first, second = read(out).strip().split("\n\n")
             self.assertTrue(first.startswith("Una bellota puede llegar a ser encina"), first)
             self.assertIn("Paragraph 1 of 2: done, try 2", r.stdout)
@@ -318,6 +321,99 @@ class Rewrite(unittest.TestCase):
             r = run(sys.executable, script("rewrite.py"), src, "-o", out, "--only", "2", env=env)
             self.assertEqual(r.returncode, 2)
             self.assertIn("same count", r.stderr)
+
+    def test_rescue_rounds_rewrite_a_paragraph_that_first_runs_out_of_tries(self):
+        """A paragraph whose first tries all lose a concept used to stay as the original
+        (paragraph 4 of a real assignment). Now it gets extra rounds at a higher
+        temperature, and the fake model only behaves from the third call on."""
+        text = ("Una bellota tiene la potencia de convertirse en una encina, pero una piedra "
+                "no tiene esa potencia y nunca va a llegar a ser un árbol de ninguna clase.\n")
+        with tempfile.TemporaryDirectory() as tmp:
+            for f in (rewrite.BASE, rewrite.ADAPTER):
+                open(os.path.join(tmp, f), "w").close()
+            fake, calls = os.path.join(tmp, "fake_llama.py"), os.path.join(tmp, "calls")
+            with open(fake, "w", encoding="utf-8") as fh:
+                fh.write(
+                    "import os, sys\n"
+                    f"c = {calls!r}\n"
+                    "n = int(open(c).read()) + 1 if os.path.exists(c) else 1\n"
+                    "open(c, 'w').write(str(n))\n"
+                    "if n < 3:\n"
+                    "    out = ' fruto del roble, y la piedra no se vuelve nada por mucho tiempo que pase.'\n"
+                    "else:\n"
+                    "    out = (' puede llegar a ser encina; la piedra, en cambio, no tiene'\n"
+                    "           ' esa potencia ni se hará árbol jamás, por más tiempo que pase.')\n"
+                    "sys.stdout.buffer.write((out + '\\n</target_text>').encode('utf-8'))\n")
+            src, out, conc = (os.path.join(tmp, n) for n in ("in.txt", "out.txt", "c.txt"))
+            with open(src, "w", encoding="utf-8") as fh:
+                fh.write(text)
+            with open(conc, "w", encoding="utf-8") as fh:
+                fh.write("encina\nbellota\n")
+            env = dict(os.environ, HUMANIZE_MODEL_DIR=tmp, HUMANIZE_LLAMA=fake)
+            # tries=1 and rescue=2: three calls in all; the third one is the good one
+            r = run(sys.executable, script("rewrite.py"), src, "-o", out, "--concepts", conc,
+                    "--tries", "1", "--rescue", "2", "--threads", "1", env=env)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertIn("round 2 at temperature 1.1", r.stdout)
+            self.assertIn("done, rescue 2", r.stdout)
+            self.assertNotEqual(read(out).strip(), text.strip())
+            # canary: without the rescue rounds the same run leaves the original and exits 3
+            os.remove(calls)
+            r = run(sys.executable, script("rewrite.py"), src, "-o", out, "--concepts", conc,
+                    "--tries", "1", "--rescue", "0", "--threads", "1", env=env)
+            self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
+            self.assertEqual(read(out).strip(), text.strip())
+
+    def test_a_heading_with_a_colon_is_a_title(self):
+        for t in ("Introducción:", "A mis seres queridos:", "Conclusiones:"):
+            self.assertTrue(rewrite.is_title(t), t)
+        self.assertFalse(rewrite.is_title("Pbro. y Maestro: Felipe Ruiz Pérez."))
+        self.assertFalse(rewrite.is_title("Estas son las razones por las cuales creo que es así, "
+                                          "y las explico: primero, segundo, tercero y cuarto."))
+
+    def test_vosotros_forms_are_rejected_only_when_the_original_has_none(self):
+        o = "Cuando llegue la hora de mi muerte, acompáñame y confía en que la misericordia de la vida basta."
+        for bad in ("Venid y dadme la fuerza de creer en la misericordia de la vida.",
+                    "Os prometisteis la comunión con la vida de la muerte.",
+                    "Si no coincidáis en la vida de la muerte, confía en la misericordia."):
+            self.assertTrue(rewrite.vosotros_problem(o, bad), bad)
+        self.assertIsNone(rewrite.vosotros_problem(o, "Cuando llegue la hora, confía en la misericordia."))
+        self.assertIsNone(rewrite.vosotros_problem("Tenéis que venir, vuestra casa es la de la vida.",
+                                                   "Tenéis que venir a la casa de la vida."))
+
+    def test_an_accent_lost_in_a_short_name_is_rejected(self):
+        o = "Los apuntes de Ruiz Pérez (2021) dicen que el decurso vital es la ruta de la vida."
+        self.assertTrue(rewrite.proper_accent_problem(o, "Los apuntes de Ruiz Perez (2021) dicen otra cosa."))
+        self.assertIsNone(rewrite.proper_accent_problem(o, "Según Ruiz Pérez (2021), la vida es una ruta."))
+        self.assertIsNone(rewrite.proper_accent_problem("Tú sabes todo.", "Y tú lo sabes todo."))
+
+    def test_check_reports_a_paragraph_that_is_still_the_original(self):
+        o = ("Primer párrafo con muchas palabras distintas para que cuente como prosa y no como título, "
+              "y que además sigue y sigue largo.\n\n"
+              "Segundo párrafo también largo, con otras palabras bien distintas que tampoco son un título "
+              "de ningún tipo en absoluto.\n")
+        v = ("Primer párrafo con muchas palabras distintas para que cuente como prosa y no como título, "
+             "y que además sigue y sigue largo.\n\n"
+             "Otra versión del segundo bloque, dicha de manera diferente por completo y sin copiar nada.\n")
+        self.assertEqual([n for n, _ in check.still_original(o, v)], [1])
+        self.assertEqual(check.still_original(o, v + "\n\nextra"), None)
+        with tempfile.TemporaryDirectory() as tmp:
+            a, b, c = (os.path.join(tmp, n) for n in ("o.txt", "v.txt", "c.txt"))
+            for path, text in ((a, o), (b, v), (c, "párrafo\n")):
+                with open(path, "w", encoding="utf-8") as fh:
+                    fh.write(text)
+            r = run(sys.executable, script("check.py"), a, b, "--concepts", c)
+            self.assertEqual(r.returncode, 1, r.stdout)
+            self.assertIn("still the ORIGINAL", r.stdout)
+            self.assertIn("paragraph 1", r.stdout)
+            # join.py refuses to join it, unless told to
+            j = os.path.join(tmp, "j.txt")
+            r = run(sys.executable, script("join.py"), b, "-o", j, "--original", a)
+            self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+            self.assertFalse(os.path.exists(j))
+            self.assertIn("still the ORIGINAL", r.stderr)
+            r = run(sys.executable, script("join.py"), b, "-o", j, "--original", a, "--allow-original")
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
     def test_lead_replaces_the_opening_words(self):
         prompt, lead = rewrite.build_prompt("Uno de los problemas más importantes.", lead="Desde la")
@@ -739,6 +835,87 @@ class Installer(unittest.TestCase):
     def test_model_installer_has_hashes(self):
         s = read(script("install_model.py"))
         self.assertEqual(len(re.findall(r'_SHA = "[0-9a-f]{64}"', s)), 2)
+
+
+class Docx(unittest.TestCase):
+    """docx_tools.py moves only the prose of a .docx and leaves the rest as it was."""
+
+    PARAS = [
+        "ESCUELA DIACONAL",
+        "Introducción:",
+        "   Este es el primer párrafo de la tarea, escrito con bastantes palabras para ser prosa.",
+        "",
+        "Desarrollo",
+        "   Frase corta de enlace que aun así tiene más de doce palabras para contar como prosa.",
+        "   Y este es el segundo párrafo, que sigue a la frase corta y tiene bastantes palabras también.",
+        "Bibliografía",
+        "Autor, A. (2021). Un libro que no se debe tocar [Apuntes] & más.",
+    ]
+
+    def _make(self, tmp):
+        body = "".join(
+            f'<w:p><w:pPr/><w:r><w:t xml:space="preserve">{t}</w:t></w:r></w:p>' if t
+            else "<w:p/>" for t in self.PARAS)
+        # one paragraph with its indent in a run of its own, as Word does
+        body = body.replace(
+            '<w:r><w:t xml:space="preserve">   Este es', '<w:r><w:t xml:space="preserve">   </w:t></w:r>'
+            '<w:r><w:t xml:space="preserve">Este es')
+        path = os.path.join(tmp, "t.docx")
+        import zipfile
+        with zipfile.ZipFile(path, "w") as z:
+            z.writestr("[Content_Types].xml", "<Types/>")
+            z.writestr("word/document.xml", '<w:document xmlns:w="x"><w:body>' + body
+                       + "</w:body></w:document>")
+        return path
+
+    def test_extract_and_build_round_trip(self):
+        import zipfile
+        with tempfile.TemporaryDirectory() as tmp:
+            docx = self._make(tmp)
+            txt, mp, final, out = (os.path.join(tmp, n) for n in
+                                   ("o.txt", "m.json", "f.txt", "out.docx"))
+            r = run(sys.executable, script("docx_tools.py"), "extract", docx, "-o", txt, "--map", mp,
+                    "--start", "Introducción:", "--stop", "Bibliografía", "--merge-short", "25")
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            blocks = read(txt).strip().split("\n\n")
+            self.assertEqual(len(blocks), 4)  # Introducción:, párrafo, Desarrollo, fusionado
+            self.assertEqual(blocks[0], "Introducción:")
+            self.assertTrue(blocks[3].startswith("Frase corta de enlace que aun así tiene más de doce palabras para contar como prosa. Y este es el segundo"))
+            blocks[1] = "Texto nuevo del primer párrafo con \"comillas\" y & más <cosas> hasta ser prosa de verdad."
+            blocks[3] = "Texto nuevo del segundo párrafo, ya fusionado con la frase corta, también largo."
+            blocks[0] = "Cambiado"  # a title is never replaced, whatever the text says
+            with open(final, "w", encoding="utf-8") as fh:
+                fh.write("\n\n".join(blocks) + "\n")
+            r = run(sys.executable, script("docx_tools.py"), "build", docx, "--map", mp,
+                    "--text", final, "-o", out)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            xml = zipfile.ZipFile(out).read("word/document.xml").decode("utf-8")
+            self.assertIn("Introducción:", xml)
+            self.assertNotIn("Cambiado", xml)
+            self.assertIn("ESCUELA DIACONAL", xml)
+            self.assertIn("Un libro que no se debe tocar [Apuntes] & más.", xml)
+            self.assertIn("comillas", xml)
+            self.assertIn("&amp; más &lt;cosas&gt;", xml)  # escaped
+            self.assertNotIn("Frase corta de enlace", xml)  # merged into the paragraph before
+            self.assertNotIn("Y este es el segundo", xml)
+            # the indent that sat in a run of its own is kept
+            self.assertIn('<w:t xml:space="preserve">   Texto nuevo del primer', xml)
+            # the output is still a document the extractor can read again
+            r = run(sys.executable, script("docx_tools.py"), "extract", out, "-o", txt + "2",
+                    "--map", mp + "2", "--start", "Introducción:", "--stop", "Bibliografía")
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+    def test_build_refuses_a_text_with_another_number_of_blocks(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            docx = self._make(tmp)
+            txt, mp, out = (os.path.join(tmp, n) for n in ("o.txt", "m.json", "out.docx"))
+            run(sys.executable, script("docx_tools.py"), "extract", docx, "-o", txt, "--map", mp)
+            with open(txt, "a", encoding="utf-8") as fh:
+                fh.write("\nun bloque de más\n")
+            r = run(sys.executable, script("docx_tools.py"), "build", docx, "--map", mp,
+                    "--text", txt, "-o", out)
+            self.assertEqual(r.returncode, 2)
+            self.assertFalse(os.path.exists(out))
 
 
 if __name__ == "__main__":

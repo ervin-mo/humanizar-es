@@ -31,6 +31,7 @@ Exit code: 0 if every variant keeps 100% of the concepts, 1 if any loses one,
 2 on a usage error.
 """
 import argparse
+import difflib
 import re
 import sys
 import unicodedata
@@ -51,6 +52,36 @@ NOT_PROPER = {
     "the", "an", "of", "and", "or", "in", "on", "at", "for", "to", "with", "by", "from",
     "this", "that", "these", "those", "it", "its", "but", "if", "when", "while", "as",
 }
+
+
+COPY_RUN = 8  # words in a row that count as copied, not as a shared phrase or a name
+STILL_ORIGINAL = 0.6  # a paragraph that copies this share of the original was not rewritten
+
+
+def copied_share(original, rewritten, run=COPY_RUN):
+    """Share of the rewritten words that sit in runs of `run`+ words copied from the
+    original. Calibrated on four essays: HIP's real rewrites copy 0.12-0.45; a paragraph
+    it left half untouched, 0.80."""
+    a = re.findall(r"\w+", original.lower())
+    b = re.findall(r"\w+", rewritten.lower())
+    sm = difflib.SequenceMatcher(None, a, b, autojunk=False)
+    return sum(m.size for m in sm.get_matching_blocks() if m.size >= run) / max(1, len(b))
+
+
+def paragraphs(text):
+    return [x.strip() for x in re.split(r"\n\s*\n", text) if x.strip()]
+
+
+def still_original(original_text, variant_text, limit=STILL_ORIGINAL):
+    """[(number, share)] of the paragraphs (prose: more than 12 words) of the variant that
+    are still the original, by position. None if the two texts have a different number of
+    paragraphs, so they cannot be paired. A paragraph that rewrite.py could not rewrite is
+    kept as the original, and a joined original still reads as the original to a detector."""
+    o, v = paragraphs(original_text), paragraphs(variant_text)
+    if len(o) != len(v):
+        return None
+    return [(i, share) for i, (a, b) in enumerate(zip(o, v), 1)
+            if len(a.split()) > 12 and (share := copied_share(a, b)) >= limit]
 
 
 def norm(s):
@@ -229,6 +260,20 @@ def main():
         print("  like 'principle of non-contradiction' -> 'principle of contradiction'.")
         for f, missing in warnings:
             print(f"  {short_name(f, 30)}: " + ", ".join(f"«{x}»" for x in missing))
+
+    for f in args.variants:
+        same = still_original(texts[args.original], texts[f])
+        if same is None:
+            print(f"\nNOTE: {short_name(f, 30)} has a different number of paragraphs than the "
+                  "original: could not check which ones are still the original.")
+        elif same:
+            failed = True
+            print(f"\nERROR: {short_name(f, 30)}: paragraphs that are still the ORIGINAL "
+                  "(they copy most of it word for word; a detector will flag them):")
+            for n, share in same:
+                print(f"  paragraph {n}: {share:.0%} copied")
+            print("  Redo them: rewrite.py ... --only " + ",".join(str(n) for n, _ in same)
+                  + " --tries 12 --temperature 1.2 (then --candidates if it still fails).")
 
     return 1 if failed else 0
 
