@@ -1043,6 +1043,21 @@ class Lists(unittest.TestCase):
             self.assertEqual(r.returncode, 2)
             self.assertFalse(os.path.exists(os.path.join(tmp, "final.txt")))
 
+    def test_merge_turns_each_run_of_bullets_into_one_paragraph(self):
+        """Canary: without merge_lists the two bullets stay two blocks."""
+        import lists
+        text = ("Acción 1. Crear un centro\n"
+                "• Ofrecer horarios regulares\n"
+                "• Formar un equipo de agentes.\n"
+                "Criterios: 1.- Participación de los jóvenes; 2.- Continuidad; 3.- Actividades realizadas.\n")
+        blocks, info = lists.merge_lists(*lists.split_text(text))
+        self.assertEqual(blocks, ["Acción 1. Crear un centro",
+                                  "Ofrecer horarios regulares. Formar un equipo de agentes.",
+                                  "Criterios: participación de los jóvenes, continuidad y actividades realizadas."])
+        self.assertEqual(lists.bullet_blocks(info), [])
+        self.assertEqual(lists.restore_text(blocks, info).count("•"), 0)
+        self.assertEqual(lists.flatten_inline_list("Una sola cosa: 1.- esto."), "Una sola cosa: 1.- esto.")
+
 
 class VaryBullets(unittest.TestCase):
     def test_bullet_lead_only_for_a_bare_infinitive(self):
