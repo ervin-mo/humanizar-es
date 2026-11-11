@@ -125,10 +125,24 @@ closing with «:»): they come back exactly as they were. A try with broken char
 35-40% in Grammarly, against 0% for an essay of long paragraphs). Each bullet is one short
 sentence: the model keeps the original's two opening words and changes two or three more, so
 **47% of the final words still sat in runs of five or more identical to the original**, and
-`join.py` has nothing to join. Two flags are there for it, **not yet validated with the real
-model** (measure before trusting them): `--dry` turns on llama.cpp's DRY sampler and min-p,
-which penalise copying runs that sit in the prompt; `--lead-words 0` lets the model choose how
-to start instead of forcing the original's first two words.
+`join.py` has nothing to join. For a Spanish list use **`--vary-bullets --dry`** (measured on
+the «Realizar» section, 220 words: words in runs of 4+ identical to the original 72% by default
+→ 54% with `--vary-bullets` → **34% with `--vary-bullets --dry`**): a bullet that starts with a
+bare infinitive («Ofrecer…») starts from that verb conjugated in a rotating form («Ofrecemos»,
+«Formaremos», «Vamos a establecer», «Queremos promover»), and blocks of up to 25 words must
+not copy more than half their words in runs of four (runs of eight missed a bullet that only
+lost an «y»). `--dry` alone with `--lead-words 0` was worse (81%: most bullets kept as the
+original). Expect small agreement slips («sostenible y coordinadas», «la liderazgo»): they
+are the one-to-three-word fixes of step 6.
+
+**A list pasted as text** (one «•» per line, no blank lines) reaches the scripts as ONE
+paragraph. Split it first and put the marks back at the end:
+
+```bash
+python3 <skill>/scripts/lists.py split pasted.txt -o 00-original.txt --map lists.json
+# ... steps 4 to 7 (rewrite.py --vary-bullets --dry) ...
+python3 <skill>/scripts/lists.py restore 02-final.txt --map lists.json -o 03-deliver.txt
+```
 
 ### 6. Review and fix, BEFORE joining (blocking)
 

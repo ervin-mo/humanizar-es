@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+**Lists keep their bullets and lose their skeleton (11-nov).**
+
+- **`lists.py split/restore`:** a list pasted with one «•» per line and no blank lines reached
+  `rewrite.py`, `join.py` and `check.py` as one 221-word paragraph. Now every line is a block,
+  the marks go out of the model's view and come back at the end (exit 2 if the block count changed).
+- **`rewrite.py --vary-bullets`:** a bullet that starts with a bare infinitive starts from that
+  verb conjugated in a rotating form, also from try to try; blocks of up to 25 words are held to
+  runs of 4 (max. 50% copied). Copied words on «3. Realizar»: 72% → 34% with `--dry`.
+- **Measuring:** with Grammarly's daily free limit reached, the score stays at «—%»; a script
+  that looked for «N% of this text» found another «0%» on the page and reported 0% for
+  everything, AI original included. Check for the limit notice before reading any number.
+
 **Documents made of bullets.** A second test document (1,300 words of short bullets) scored
 35-40% in Grammarly. Causes found and fixed or documented:
 
