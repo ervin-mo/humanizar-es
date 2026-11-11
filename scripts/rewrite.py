@@ -66,11 +66,19 @@ def resolve_model_dir(environ=None, home=None):
 MODEL_DIR = resolve_model_dir()
 
 
-def build_prompt(paragraph, lead_words=2, lead=None):
+LEAD_WORDS = 2     # how many of the original's first words open the rewrite (--lead-words)
+SAMPLING_EXTRA = []  # extra llama.cpp sampler flags (--dry)
+DRY_FLAGS = ["--min-p", "0.08", "--dry-multiplier", "0.8", "--dry-base", "1.75",
+             "--dry-allowed-length", "2"]
+
+
+def build_prompt(paragraph, lead_words=None, lead=None):
     """The format HIP was trained on, plus the first words of the paragraph so the
     model keeps writing in the language of the original. `lead` replaces those words:
     the original's own opening («Uno de los problemas más importantes…») ties the model
     to the stock sentence a detector flags; another opening («Desde la») frees it."""
+    if lead_words is None:
+        lead_words = LEAD_WORDS
     lead = lead or " ".join(paragraph.split()[:lead_words])
     prompt = f"<source_text>\n{paragraph.strip()}\n</source_text>\n\n<target_text>\n{lead}"
     return prompt, lead
@@ -123,7 +131,7 @@ def _run_llama(prompt_file, paragraph, threads, temperature):
            "--lora", os.path.join(MODEL_DIR, ADAPTER),
            "-ngl", "0", "-dev", "none", "-t", str(threads), "-c", "4096",
            "-n", str(int(len(paragraph.split()) * 3) + 100),
-           "--temp", str(temperature), "--top-p", "0.95",
+           "--temp", str(temperature), "--top-p", "0.95", *SAMPLING_EXTRA,
            "-no-cnv", "--no-display-prompt", "-r", "</target_text>", "-f", prompt_file]
     if llama.endswith(".py"):  # a fake llama, for the tests
         cmd = [sys.executable] + cmd
@@ -240,6 +248,10 @@ def language_problem(original, rewritten):
     # the situation, without blaming people immediately» has no Spanish function word at all
     if oes > oen and ren >= 2 and ren > 0.5 * res:
         return "(switched to English)"
+    # a short list of nouns can be English without one function word («Offering identity,
+    # self-esteem, emotion management…»): no Spanish word at all in five or more is not Spanish
+    if oes > oen and res == 0 and len(re.findall(r"[^\W\d_]+", rewritten)) >= 5:
+        return "(switched to English)"
     if oen > oes and res >= 2 and res > 0.5 * ren:
         return "(switched to Spanish)"
     return None
@@ -316,6 +328,20 @@ def proper_accent_problem(original, rewritten):
     return None
 
 
+def encoding_problem(original, rewritten):
+    """The base model sometimes writes the UTF-8 bytes of an accent as two characters
+    («oraciÃ³n»), turns it into a digit («oraci6n») or into an HTML entity
+    («presi&oacute;n»). None of it is Spanish and a reader sees it at once."""
+    for rx, what in ((r"[ÃÂ][\u0080-\u00bf¡-¿]", "mojibake"),
+                     (r"&(?:[a-zA-Z]{2,8}|#\d{2,5});", "HTML entity"),
+                     (r"\b[^\W\d_]+\d[^\W\d_]+\b", "digit inside a word")):
+        mine = set(re.findall(rx, rewritten))
+        theirs = set(re.findall(rx, original))
+        if mine - theirs:
+            return f"(broken characters: {what} {sorted(mine - theirs)[0]!r})"
+    return None
+
+
 def acceptable(p, r, wanted, concepts, max_copied):
     """(problem, copied share) for one try: problem is None when the try can be used."""
     if len(r.split()) < 0.6 * len(p.split()) or len(r.split()) > 1.6 * len(p.split()) + 10:
@@ -323,7 +349,8 @@ def acceptable(p, r, wanted, concepts, max_copied):
     missing = wanted - concepts_in(r, concepts)
     if missing:
         return sorted(missing)[0], 0.0
-    for guard in (citation_problem, spelling_problem, proper_accent_problem, language_problem,
+    for guard in (encoding_problem, citation_problem, spelling_problem, proper_accent_problem,
+                  language_problem,
                   vosotros_problem, negation_problem, repetition_problem):
         problem = guard(p, r)
         if problem:
@@ -339,6 +366,10 @@ NUMBERED_HEADING = re.compile(r"\d+(?:\.\d+)*(?:\.-?|\))\s+(?P<rest>.+)")
 def is_title(p):
     if len(p.split()) > 12:
         return False
+    # «Objetivo.» came back as «Objetivo; the purpose of this study is»: up to four
+    # words is a heading, whatever it ends with (docx_tools.py uses the same rule)
+    if len(p.split()) <= 4:
+        return True
     # «Introducción:», «A mis seres queridos:» - a short line closing with a colon is a
     # heading or a greeting, not prose. HIP turned «Introducción:» into «Introducción: Abstract».
     if (p.rstrip().endswith(":") and len(p.split()) <= 8
@@ -371,6 +402,13 @@ def main():
                     "from the original, keeping the others and their hand fixes")
     ap.add_argument("--lead", help="opening words for the rewritten paragraphs instead of the "
                     "original's first two (e.g. \"Desde la\"); use it with --only")
+    ap.add_argument("--dry", action="store_true",
+                    help="DRY sampler + min-p: penalises copying runs of the original that sit "
+                    "in the prompt (short bullets stay 47%% word for word without it)")
+    ap.add_argument("--lead-words", dest="lead_words", type=int, default=2,
+                    help="how many of the original's first words open the rewrite (2); 0 lets "
+                    "the model choose how to start, which breaks the original's skeleton in "
+                    "short bullets")
     ap.add_argument("--temperature", type=float, default=1.0,
                     help="sampling temperature (1.0); 1.1-1.2 gives more varied candidates")
     ap.add_argument("--candidates", type=int, metavar="N",
@@ -380,6 +418,10 @@ def main():
                     help="put the text of FILE in paragraph N of the output (no model needed); "
                     "repeat it to adopt several paragraphs at once")
     args = ap.parse_args()
+    global LEAD_WORDS
+    LEAD_WORDS = args.lead_words
+    if args.dry:
+        SAMPLING_EXTRA.extend(DRY_FLAGS)
 
     if args.take:
         return take(args.original, args.output, args.take)
@@ -476,12 +518,18 @@ def main():
               + f"--only {nums} --tries {args.tries * 2} --temperature 1.2\n"
               "or, if one concept keeps failing, fix its spelling in the concepts file first.")
     if copied:
+        nums = ",".join(c.split(" ")[0] for c in copied)
         print("WARNING: every try copied long stretches of the original; the least copied one "
               "was kept: " + "; ".join(copied) + ". Redo them with --only and more --tries.")
+        print("ACTION REQUIRED: those paragraphs are still mostly the ORIGINAL, so a detector "
+              "will flag them. Redo them (try --dry and --lead-words 0, or --candidates):\n"
+              f"  python3 {sys.argv[0]} {args.original} -o {args.output} "
+              + (f"--concepts {args.concepts} " if args.concepts else "")
+              + f"--only {nums} --tries {args.tries * 2} --temperature 1.2 --dry")
     print("Next step: reread against the original and fix by hand what changed (HIP\n"
           "sometimes changes a detail, like «they clean» into «they wash the dishes»);\n"
           "then scripts/join.py --original " + args.original + ".")
-    return 3 if untouched else 0
+    return 3 if (untouched or copied) else 0
 
 
 def write_candidates(args, i, p, wanted, concepts):

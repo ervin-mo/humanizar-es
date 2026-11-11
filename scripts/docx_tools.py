@@ -7,8 +7,9 @@ The recipe works on plain text, but a student's assignment or a client's documen
   extract   reads the .docx and writes the original text (one paragraph per block,
             blank line between them) plus a map of which Word paragraphs each block is.
   build     takes the final text and writes a copy of the .docx with the same formatting,
-            replacing only the prose paragraphs. Titles (12 words or fewer), the header
-            and everything after --stop (bibliography) stay byte for byte.
+            replacing only the prose paragraphs. Headings (up to four words, a line ending in
+            ":", «1. Ubicar», «Acción 2.», «Anexo»), the header and everything after --stop
+            (bibliography) stay byte for byte; short bullets of five or more words are rewritten.
 
 Standard library only. The .docx is read as a zip; nothing else is touched.
 
@@ -21,7 +22,8 @@ usage:
 
 --start / --stop: the first paragraph that starts with that text (case and accents are
 ignored). Without --start the body begins at the first paragraph; without --stop it goes
-to the end. --merge-short N joins a prose paragraph of fewer than N words with the next
+to the end. --merge-lists turns each list of bullets (paragraphs with numbering, outside
+tables) into one paragraph, so the model and the joiner can give it rhythm. --merge-short N joins a prose paragraph of fewer than N words with the next
 one («En el plano filosófico, las ideas son diversas.» + its paragraph): one short
 sentence alone is hard for the model and for the joiner.
 """
@@ -40,7 +42,9 @@ if hasattr(sys.stdout, "reconfigure"):  # so a Windows console does not choke on
 PARAGRAPH = re.compile(r"<w:p(?=[ >]).*?</w:p>", re.S)
 RUN = re.compile(r"<w:r(?=[ >]).*?</w:r>", re.S)
 TEXT = re.compile(r"<w:t(?: [^>]*)?>.*?</w:t>", re.S)
-TITLE_WORDS = 12  # same threshold as rewrite.is_title: up to this many words is a title
+TITLE_WORDS = 12  # a block with MORE words than this is always prose
+HEADING = re.compile(r"^(\d+[.)]\s|Acci[oó]n\s+\d+[.:]|Anexo\b)", re.I)
+MIN_WORDS = 5  # a short sentence needs this many words to be rewritten
 
 
 def _plain(s):
@@ -64,8 +68,20 @@ def leading_spaces(p):
     return raw[:len(raw) - len(raw.lstrip(" "))]
 
 
+def is_heading(text):
+    """A short line that names a section: it stays byte for byte. A short BULLET
+    («Promover actividades deportivas y artísticas.») is not a heading: left as it was it
+    stays AI text, and in a document made of lists that was a third of the words (a test
+    document scored 40% in Grammarly with every short bullet untouched)."""
+    t = text.strip()
+    words = len(t.split())
+    if words > TITLE_WORDS:
+        return False
+    return words < MIN_WORDS or t.endswith(":") or bool(HEADING.match(t))
+
+
 def is_prose(text):
-    return len(text.split()) > TITLE_WORDS
+    return len(text.split()) >= MIN_WORDS and not is_heading(text)
 
 
 def extract(args):
@@ -89,17 +105,25 @@ def extract(args):
             return 2
         stop = hits[0]
     body = [i for i in range(start, stop) if texts[i]]
+    listed = list_items(xml, paras)  # bullets outside a table: paragraphs with numbering
     units, k = [], 0
     while k < len(body):
         group = [body[k]]
-        if (args.merge_short and is_prose(texts[body[k]])
+        if args.merge_lists and body[k] in listed:
+            # one bullet list becomes ONE paragraph of prose: a list of short parallel
+            # sentences has no rhythm for join.py to rebuild, and left alone it kept a
+            # test document at 35% in Grammarly
+            while k + 1 < len(body) and body[k + 1] in listed:
+                group.append(body[k + 1])
+                k += 1
+        elif (args.merge_short and is_prose(texts[body[k]])
                 and len(texts[body[k]].split()) < args.merge_short and k + 1 < len(body)
                 and is_prose(texts[body[k + 1]])):
             group.append(body[k + 1])
             k += 1
         units.append({"paragraphs": group, "texts": [texts[i] for i in group]})
         k += 1
-    blocks = [" ".join(u["texts"]) for u in units]
+    blocks = [join_items(u["texts"]) for u in units]
     with open(args.output, "w", encoding="utf-8") as fh:
         fh.write("\n\n".join(blocks) + "\n")
     with open(args.map, "w", encoding="utf-8") as fh:
@@ -109,6 +133,27 @@ def extract(args):
     print(f"Body: Word paragraphs {start}-{stop - 1} of {len(paras)}"
           + (f", from «{texts[start][:40]}»" if texts[start] else ""))
     return 0
+
+
+def list_items(xml, paras):
+    """Indexes of the paragraphs that are list items (they carry numbering) and are not
+    inside a table: a table cell is a paragraph of its own column and must stay one."""
+    tables = [(m.start(), m.end()) for m in re.finditer(r"<w:tbl>.*?</w:tbl>", xml, re.S)]
+    items = set()
+    for i, m in enumerate(PARAGRAPH.finditer(xml)):
+        if "<w:numPr>" in m.group(0) and not any(a <= m.start() < b for a, b in tables):
+            items.add(i)
+    return items
+
+
+def join_items(texts):
+    """The text of several paragraphs as one: each one closes with its own punctuation."""
+    if len(texts) == 1:
+        return texts[0]
+    parts = []
+    for x in texts:
+        parts.append(x if x.rstrip().endswith((".", "!", "?", "…", ";", ":")) else x.rstrip() + ".")
+    return " ".join(parts)
 
 
 def esc(s):
@@ -179,6 +224,9 @@ def main():
     e.add_argument("--start")
     e.add_argument("--stop")
     e.add_argument("--merge-short", type=int, default=0, dest="merge_short")
+    e.add_argument("--merge-lists", action="store_true", dest="merge_lists",
+                   help="turn each bullet list into ONE paragraph of prose (the bullets after "
+                   "the first one are removed from the .docx)")
     b = sub.add_parser("build")
     b.add_argument("docx")
     b.add_argument("--map", required=True)

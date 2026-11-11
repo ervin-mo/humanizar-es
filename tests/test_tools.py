@@ -295,9 +295,12 @@ class Rewrite(unittest.TestCase):
             env = dict(os.environ, HUMANIZE_MODEL_DIR=tmp, HUMANIZE_LLAMA=fake)
             r = run(sys.executable, script("rewrite.py"), src, "-o", out,
                     "--tries", "2", "--threads", "1", env=env)
-            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            # a paragraph that is still the original must not end with exit code 0
+            self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
             self.assertIn("copied long stretches", r.stdout)
             self.assertIn("1 (100%)", r.stdout)
+            self.assertIn("ACTION REQUIRED", r.stdout)
+            self.assertIn("--only 1", r.stdout)
 
     def test_only_redoes_the_listed_paragraphs_and_keeps_the_rest(self):
         text = ("Año tras año, el pingüino «Nuño» camina sin prisa hacia el sur.\n\n"
@@ -312,7 +315,7 @@ class Rewrite(unittest.TestCase):
             env = dict(os.environ, HUMANIZE_MODEL_DIR=tmp, HUMANIZE_LLAMA=fake)
             r = run(sys.executable, script("rewrite.py"), src, "-o", out, "--only", "2",
                     "--tries", "1", "--threads", "1", env=env)
-            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertIn(r.returncode, (0, 3), r.stdout + r.stderr)  # the fake model copies
             first, second = read(out).strip().split("\n\n")
             self.assertEqual(first, "Primero, ya corregido a mano.")
             self.assertEqual(second, text.strip().split("\n\n")[1])
@@ -386,6 +389,59 @@ class Rewrite(unittest.TestCase):
         self.assertTrue(rewrite.proper_accent_problem(o, "Los apuntes de Ruiz Perez (2021) dicen otra cosa."))
         self.assertIsNone(rewrite.proper_accent_problem(o, "Según Ruiz Pérez (2021), la vida es una ruta."))
         self.assertIsNone(rewrite.proper_accent_problem("Tú sabes todo.", "Y tú lo sabes todo."))
+
+    def test_an_english_list_without_function_words_is_rejected(self):
+        o = "Ofrecer talleres de identidad, autoestima, manejo de emociones y resolución de conflictos."
+        r = "Offering identity, self-esteem, emotion management, addiction prevention workshops."
+        self.assertEqual(rewrite.language_problem(o, r), "(switched to English)")
+        self.assertIsNone(rewrite.language_problem(o, "Dar cursos sobre identidad y autoestima."))
+
+    def test_broken_characters_are_rejected(self):
+        o = "Incluir espacios de oración, lectura de la Palabra y reflexión sobre la vocación."
+        for bad in ("Incluir espacios de oraciÃ³n, lectura y reflexiÃ³n",   # UTF-8 read as Latin-1
+                    "Incluir espacios de oraci6n, lectura y reflexi6n",     # accent turned digit
+                    "Taller sobre presi&oacute;n de grupo y &#243;ptimo"):  # HTML entity
+            self.assertTrue(rewrite.encoding_problem(o, bad), bad)
+        self.assertIsNone(rewrite.encoding_problem(o, "Incluir también la oración y la reflexión."))
+        # what the original already had is not the model's fault
+        self.assertIsNone(rewrite.encoding_problem("Salmo 34,19 y H2O", "Salmo 34,19 y H2O"))
+
+    def test_up_to_four_words_is_a_title_for_rewrite_too(self):
+        self.assertTrue(rewrite.is_title("Objetivo."))
+        self.assertTrue(rewrite.is_title("Anexo Calendario de encuentros"))
+        self.assertFalse(rewrite.is_title("Cada joven tiene dignidad en su proceso de vida."))
+
+    def test_dry_and_lead_words_reach_the_model(self):
+        """--dry adds the DRY sampler flags; --lead-words 0 leaves the opening to the model."""
+        text = "Ofrecer talleres sobre identidad, autoestima y manejo de emociones para jóvenes.\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            for f in (rewrite.BASE, rewrite.ADAPTER):
+                open(os.path.join(tmp, f), "w").close()
+            fake = os.path.join(tmp, "fake_llama.py")
+            seen = os.path.join(tmp, "args.txt")
+            with open(fake, "w", encoding="utf-8") as fh:
+                fh.write(
+                    "import sys\n"
+                    "args = sys.argv[1:]\n"
+                    f"open({seen!r}, 'w').write(' '.join(args) + '\\n' + open(args[args.index('-f') + 1], encoding='utf-8').read())\n"
+                    "prompt = open(args[args.index('-f') + 1], encoding='utf-8').read()\n"
+                    "source = prompt.split('<source_text>\\n')[1].split('\\n</source_text>')[0]\n"
+                    "sys.stdout.buffer.write((' Dar cursos de identidad y de emociones a los muchachos.\\n</target_text>').encode('utf-8'))\n")
+            src, out = os.path.join(tmp, "in.txt"), os.path.join(tmp, "out.txt")
+            with open(src, "w", encoding="utf-8") as fh:
+                fh.write(text + "\n" + text.replace("Ofrecer", "Planear"))
+            env = dict(os.environ, HUMANIZE_MODEL_DIR=tmp, HUMANIZE_LLAMA=fake)
+            r = run(sys.executable, script("rewrite.py"), src, "-o", out, "--tries", "1",
+                    "--threads", "1", "--dry", "--lead-words", "0", env=env)
+            got = read(seen)
+            self.assertIn("--dry-multiplier", got, r.stdout + r.stderr)
+            self.assertIn("--min-p", got)
+            self.assertTrue(got.rstrip().endswith("<target_text>"), got)  # no opening words
+            r = run(sys.executable, script("rewrite.py"), src, "-o", out, "--tries", "1",
+                    "--threads", "1", env=env)
+            got = read(seen)
+            self.assertNotIn("--dry-multiplier", got)
+            self.assertIn("<target_text>\nPlanear talleres", got)  # default: the original's first two words
 
     def test_check_reports_a_paragraph_that_is_still_the_original(self):
         o = ("Primer párrafo con muchas palabras distintas para que cuente como prosa y no como título, "
@@ -596,7 +652,8 @@ class Rewrite(unittest.TestCase):
 
     def test_recognizes_titles(self):
         self.assertTrue(rewrite.is_title("Turismo y tecnología"))
-        self.assertFalse(rewrite.is_title("El turismo crece."))
+        self.assertTrue(rewrite.is_title("El turismo crece."))  # up to four words: a heading
+        self.assertFalse(rewrite.is_title("El turismo crece cada año en la ciudad."))
 
     def test_numbered_headings_with_a_period_are_titles(self):
         # «1. Dimensión individual: conocerme y orientar mi vida.» used to be rewritten.
@@ -605,7 +662,7 @@ class Rewrite(unittest.TestCase):
             self.assertTrue(rewrite.is_title(t), t)
         for t in ("1. El ser es. El no-ser no es.",  # two sentences: a numbered paragraph
                   "3. La parroquia acompaña a las familias que llegan cada domingo desde lejos.",
-                  "En 1990. Todo cambió."):
+                  "En 1990. Todo cambió de manera muy notable."):
             self.assertFalse(rewrite.is_title(t), t)
 
     def _fake_llama(self, tmp):
@@ -635,7 +692,7 @@ class Rewrite(unittest.TestCase):
             env = dict(os.environ, HUMANIZE_MODEL_DIR=tmp, HUMANIZE_LLAMA=fake)
             r = run(sys.executable, script("rewrite.py"), src, "-o", out,
                     "--tries", "1", "--threads", "1", env=env)
-            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertIn(r.returncode, (0, 3), r.stdout + r.stderr)  # the fake model copies
             self.assertEqual(read(out), text)
             os.remove(out)
             env = {k: v for k, v in os.environ.items()
@@ -643,7 +700,7 @@ class Rewrite(unittest.TestCase):
             env.update(HUMANIZAR_HIP_DIR=tmp, HUMANIZAR_LLAMA=fake)
             r = run(sys.executable, script("hip.py"), src, "--salida", out,
                     "--intentos", "1", "--hilos", "1", env=env)
-            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertIn(r.returncode, (0, 3), r.stdout + r.stderr)  # the fake model copies
             self.assertIn("hip.py is now rewrite.py", r.stderr)
             self.assertEqual(read(out), text)
 
@@ -916,6 +973,42 @@ class Docx(unittest.TestCase):
                     "--text", txt, "-o", out)
             self.assertEqual(r.returncode, 2)
             self.assertFalse(os.path.exists(out))
+
+    def test_a_short_bullet_is_rewritten_but_a_heading_is_not(self):
+        """A document of lists: the short bullets are most of the words, and left as they
+        were they scored 40% in Grammarly. Headings still stay."""
+        import zipfile
+        paras = ["Introducción", "Actividades:", "1. Ubicar (ver)",
+                 "Acción 1. Crear un centro parroquial de escucha, cuidado y orientación",
+                 "Promover actividades deportivas, artísticas y de servicio comunitario.",
+                 "crisis emocional y sentido de vida;", "Resultado esperado", "Bibliografía"]
+        body = "".join(f'<w:p><w:r><w:t xml:space="preserve">{x}</w:t></w:r></w:p>' for x in paras)
+        with tempfile.TemporaryDirectory() as tmp:
+            docx = os.path.join(tmp, "t.docx")
+            with zipfile.ZipFile(docx, "w") as z:
+                z.writestr("[Content_Types].xml", "<Types/>")
+                z.writestr("word/document.xml", '<w:document xmlns:w="x"><w:body>' + body
+                           + "</w:body></w:document>")
+            txt, mp, final, out = (os.path.join(tmp, n) for n in
+                                   ("o.txt", "m.json", "f.txt", "out.docx"))
+            r = run(sys.executable, script("docx_tools.py"), "extract", docx, "-o", txt,
+                    "--map", mp, "--stop", "Bibliografía")
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            blocks = read(txt).strip().split("\n\n")
+            self.assertEqual(len(blocks), 7)
+            self.assertIn("2 of prose", r.stdout)  # the bullet and the fragment, not the headings
+            changed = ["X" + b for b in blocks]
+            with open(final, "w", encoding="utf-8") as fh:
+                fh.write("\n\n".join(changed) + "\n")
+            r = run(sys.executable, script("docx_tools.py"), "build", docx, "--map", mp,
+                    "--text", final, "-o", out)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            xml = zipfile.ZipFile(out).read("word/document.xml").decode("utf-8")
+            self.assertIn("XPromover actividades", xml)  # the short bullet was replaced
+            for heading in ("Actividades:", "1. Ubicar (ver)", "Acción 1. Crear un centro",
+                            "Resultado esperado"):
+                self.assertIn(">" + heading, xml)
+                self.assertNotIn("X" + heading, xml)
 
 
 if __name__ == "__main__":

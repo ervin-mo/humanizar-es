@@ -61,7 +61,7 @@ python3 <skill>/scripts/docx_tools.py build doc.docx --map mapa.json --text 02-f
 
 `--start`/`--stop` are the first paragraph that begins with that text (a header line like
 «Introducción a la Filosofía» also begins with «Introducción»: include the colon or more words).
-Titles stay one block each and are never replaced. `--merge-short 25` joins a lone short
+Headings (up to four words, a line ending in «:», «1. Ubicar», «Acción 2.», «Anexo») stay one block each and are never replaced; **a short bullet of five or more words is rewritten like any paragraph** (a list-heavy test document kept a third of its words as original AI bullets and scored 40% in Grammarly). `--merge-short 25` joins a lone short
 sentence with the paragraph after it. Open the `.docx` yourself before delivering it: this
 script checks the XML, not how Word draws it.
 
@@ -115,9 +115,20 @@ goes up 0.1 each round, so it ends up rewritten instead of staying as the origin
 `ACTION REQUIRED` with the exact `--only` command: **a paragraph that stays as the original is
 AI text, a detector flags it and joining it hides nothing**. Run that command (check the
 spelling of the concept it names in `concepts.txt` first), then read again. It also lists the
-paragraphs that copied long stretches of the original in every try: redo those with `--only`
-and more `--tries`. It never touches a title or a greeting («Introducción:», «A mis seres
-queridos:»): they come back exactly as they were.
+paragraphs that copied long stretches of the original in every try (that **also exits with
+code 3**: a paragraph that is still mostly the original is not done): redo those with `--only`
+and more `--tries`. It never touches a title or a greeting (up to four words, or a short line
+closing with «:»): they come back exactly as they were. A try with broken characters
+(«oraciÃ³n», «oraci6n», «presi&oacute;n») is discarded.
+
+**A document made of bullets is the hard case** (measured on a 1,300-word pastoral proposal:
+35-40% in Grammarly, against 0% for an essay of long paragraphs). Each bullet is one short
+sentence: the model keeps the original's two opening words and changes two or three more, so
+**47% of the final words still sat in runs of five or more identical to the original**, and
+`join.py` has nothing to join. Two flags are there for it, **not yet validated with the real
+model** (measure before trusting them): `--dry` turns on llama.cpp's DRY sampler and min-p,
+which penalise copying runs that sit in the prompt; `--lead-words 0` lets the model choose how
+to start instead of forcing the original's first two words.
 
 ### 6. Review and fix, BEFORE joining (blocking)
 
@@ -210,6 +221,18 @@ a test essay: the user pasted the original (53%, read as «it failed»), and a c
 plain `pbcopy` broke every accent («a√±os»; 0%, read as «it passed»). `--copy N` puts half
 N on the clipboard in UTF-8 and reads it back; never copy with a bare `pbcopy`. When the
 user sends a score, check the phrase in their screenshot before reading the number.
+
+### Measuring without highlights (Grammarly free detector)
+
+It gives a percentage and **no highlighted sentences** (checked in the page's DOM). What was
+measured on the pastoral proposal: the score is **roughly additive by words** (the sections'
+word-weighted average, 39.0%, matched the whole document's 35-40%); pasting the same text
+twice gives the same percentage, so a section of 100-275 words is not just noise; and with
+two 0% sections around it, a section scored the same as alone (31 vs 32). That makes a
+**per-block measurement** possible: paste a 0% anchor text (~160 words) plus ONE block, and
+the percentage times the words is that block's flagged share. ~12 s per measurement. **Do not
+measure only a text you have rewritten**: the same section scored 70% as the original and
+85% rewritten, so always keep the original's number beside it.
 
 ### 9. Select, for what a detector still flags
 

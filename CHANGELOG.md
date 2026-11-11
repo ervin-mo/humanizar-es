@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+**Documents made of bullets.** A second test document (1,300 words of short bullets) scored
+35-40% in Grammarly. Causes found and fixed or documented:
+
+- **`docx_tools.py` left a third of the words untouched.** Anything of 12 words or fewer was
+  treated as a heading, so short bullets stayed as the original AI text (34% of the words).
+  Now only real headings (up to four words, a line ending in «:», «1. Ubicar», «Acción 2.»,
+  «Anexo») stay; a bullet of five or more words is rewritten.
+- **`rewrite.py` exits with code 3 also when every try copied the original** (it only warned).
+- **New guard for broken characters** (`oraciÃ³n`, `oraci6n`, `presi&oacute;n`).
+- **Up to four words is a title for `rewrite.py` too** («Objetivo.» came back as «Objetivo;
+  the purpose of this study is»).
+- **New, unvalidated: `--dry` and `--lead-words N`** to make short bullets move away from the
+  original (47% of the words stayed in runs of five or more identical ones).
+- Documented how to measure without highlights (score is ~additive by words; per-block
+  measurement with a 0% anchor) in `SKILL.md`.
+
 **A paragraph that stays as the original no longer slips through.** Humanizing a 1,469-word
 .docx assignment, paragraph 4 came back **identical to the original** (every try lost a
 concept or invented a quote), `rewrite.py` printed one WARNING line and exited 0, and the
