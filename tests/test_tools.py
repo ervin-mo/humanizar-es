@@ -1065,6 +1065,17 @@ class VaryBullets(unittest.TestCase):
         self.assertIsNone(rewrite.acceptable(p, r, set(), [], 0.6)[0])  # runs of 8 miss it
         self.assertEqual(rewrite.acceptable(p, r, set(), [], 0.6, strict_short=True)[0], "(copied)")
 
+    def test_check_flags_a_short_line_a_hand_fix_put_back(self):
+        """«sostenible» (the model's slip) broke the copied run; fixing it put the original back.
+        Canary: the old rule skipped blocks of 12 words or fewer and found nothing."""
+        o = ("Acción 1. Crear un centro parroquial\n\n"
+             "Propósito: atender a las necesidades identificadas con acciones concretas, sostenibles y coordinadas.\n")
+        slip = ("Acción 1. Crear un centro parroquial\n\n"
+                "Propósito: atender las necesidades identificadas mediante acciones concretas, sostenible y coordinadas.\n")
+        fixed = slip.replace("sostenible y", "sostenibles y")
+        self.assertEqual(check.still_original(o, slip), [])
+        self.assertEqual([n for n, _ in check.still_original(o, fixed)], [2])  # not the heading
+
     def test_rewrite_uses_the_openers_and_keeps_titles(self):
         """Canary: without --vary-bullets every bullet starts with its own infinitive."""
         text = ("Acción 1. Crear un centro\n\n"

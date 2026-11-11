@@ -129,9 +129,9 @@ sentence: the model keeps the original's two opening words and changes two or th
 the «Realizar» section, 220 words: words in runs of 4+ identical to the original 72% by default
 → 54% with `--vary-bullets` → **34% with `--vary-bullets --dry`**): a bullet that starts with a
 bare infinitive («Ofrecer…») starts from that verb conjugated in a rotating form («Ofrecemos»,
-«Formaremos», «Vamos a establecer», «Queremos promover»), and blocks of up to 25 words must
-not copy more than half their words in runs of four (runs of eight missed a bullet that only
-lost an «y»). `--dry` alone with `--lead-words 0` was worse (81%: most bullets kept as the
+«Formaremos», «Vamos a establecer», «Queremos promover»), and blocks of up to 40 words must
+not copy more than 40% of their words in runs of four (runs of eight missed a bullet that only
+lost an «y»); `check.py` applies the same rule afterwards. `--dry` alone with `--lead-words 0` was worse (81%: most bullets kept as the
 original). Expect small agreement slips («sostenible y coordinadas», «la liderazgo»): they
 are the one-to-three-word fixes of step 6.
 

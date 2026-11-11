@@ -86,9 +86,9 @@ NOT_INFINITIVE = set("""lugar hogar mujer ayer placer poder deber ser taller alt
     escolar celular solar dólar sur primer tercer cualquier líder carácter bienestar
     malestar porvenir auxiliar singular preliminar mayor menor par mar bar""".split())
 BULLET_MAX_WORDS = 40
-SHORT_BLOCK = 25          # words: up to this, copying is measured in runs of SHORT_RUN
-SHORT_RUN = 4
-SHORT_MAX_COPIED = 0.5
+SHORT_BLOCK = check.SHORT_BLOCK   # words: up to this, copying is measured in runs of 4,
+SHORT_RUN = check.SHORT_RUN       # the same rule check.py uses afterwards (a 32-word line
+SHORT_MAX_COPIED = check.SHORT_STILL_ORIGINAL  # of criteria came back 71% copied)
 _FUTURE_STEM = {"decir": "dir", "poder": "podr", "saber": "sabr", "querer": "querr",
                 "haber": "habr", "caber": "cabr"}
 _FUTURE_SUFFIX = (("poner", "pondr"), ("tener", "tendr"), ("venir", "vendr"),
@@ -477,7 +477,7 @@ def main():
                     help="Spanish lists: a bullet that starts with a bare infinitive («Ofrecer…») starts "
                     "from that verb conjugated, in a form that rotates («Ofrecemos», «Formaremos», "
                     "«Vamos a establecer», «Queremos promover»), and blocks of up to 25 words are "
-                    "held to a stricter copy check (runs of 4, at most 50%%)")
+                    "held to a stricter copy check (blocks of up to 40 words: runs of 4, at most 40%%)")
     ap.add_argument("--temperature", type=float, default=1.0,
                     help="sampling temperature (1.0); 1.1-1.2 gives more varied candidates")
     ap.add_argument("--candidates", type=int, metavar="N",

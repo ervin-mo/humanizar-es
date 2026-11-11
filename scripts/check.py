@@ -56,6 +56,13 @@ NOT_PROPER = {
 
 COPY_RUN = 8  # words in a row that count as copied, not as a shared phrase or a name
 STILL_ORIGINAL = 0.6  # a paragraph that copies this share of the original was not rewritten
+# A short block (a bullet, «Propósito: …», a line of criteria) is held to runs of 4: on a
+# pastoral plan the model wrote «sostenible» for «sostenibles», which broke the only copied
+# run; fixing that one word by hand put back 45% of the original and that line was one of
+# the two that Grammarly's own humanizer had to change.
+SHORT_BLOCK = 40
+SHORT_RUN = 4
+SHORT_STILL_ORIGINAL = 0.4
 
 
 def copied_share(original, rewritten, run=COPY_RUN):
@@ -73,15 +80,26 @@ def paragraphs(text):
 
 
 def still_original(original_text, variant_text, limit=STILL_ORIGINAL):
-    """[(number, share)] of the paragraphs (prose: more than 12 words) of the variant that
-    are still the original, by position. None if the two texts have a different number of
+    """[(number, share)] of the paragraphs of the variant that are still the original, by
+    position (headings are skipped; blocks of up to SHORT_BLOCK words count runs of 4). None if the two texts have a different number of
     paragraphs, so they cannot be paired. A paragraph that rewrite.py could not rewrite is
     kept as the original, and a joined original still reads as the original to a detector."""
     o, v = paragraphs(original_text), paragraphs(variant_text)
     if len(o) != len(v):
         return None
-    return [(i, share) for i, (a, b) in enumerate(zip(o, v), 1)
-            if len(a.split()) > 12 and (share := copied_share(a, b)) >= limit]
+    found = []
+    for i, (a, b) in enumerate(zip(o, v), 1):
+        words = len(a.split())
+        heading = words <= 4 or not a.rstrip().endswith((".", "!", "?", "…"))
+        if words > SHORT_BLOCK:
+            share = copied_share(a, b)
+            if share >= limit:
+                found.append((i, share))
+        elif words >= 5 and not heading:
+            share = copied_share(a, b, SHORT_RUN)
+            if share >= min(limit, SHORT_STILL_ORIGINAL):
+                found.append((i, share))
+    return found
 
 
 def norm(s):
