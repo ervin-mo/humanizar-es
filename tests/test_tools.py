@@ -1011,5 +1011,79 @@ class Docx(unittest.TestCase):
                 self.assertNotIn("X" + heading, xml)
 
 
+class Lists(unittest.TestCase):
+    TEXT = ("3. Realizar (actuar)\n"
+            "Propósito: atender a las necesidades identificadas con acciones concretas.\n"
+            "• Ofrecer horarios regulares para que los jóvenes hablen con personas preparadas.\n"
+            "- Promover actividades deportivas, artísticas y culturales.\n"
+            "\n"
+            "Criterios: 1.- Participación; 2.- Continuidad.\n")
+
+    def test_split_and_restore_give_back_the_same_text(self):
+        import lists
+        blocks, info = lists.split_text(self.TEXT)
+        self.assertEqual(len(blocks), 5)
+        self.assertEqual(blocks[2][:7], "Ofrecer")  # the mark is out of the model's view
+        self.assertEqual(lists.bullet_blocks(info), [3, 4])
+        self.assertEqual(blocks[4], "Criterios: 1.- Participación; 2.- Continuidad.")  # numbers stay
+        self.assertEqual(lists.restore_text(blocks, info), self.TEXT)
+
+    def test_restore_refuses_a_different_number_of_blocks(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            src, out, mp = (os.path.join(tmp, n) for n in ("in.txt", "out.txt", "map.json"))
+            with open(src, "w", encoding="utf-8") as fh:
+                fh.write(self.TEXT)
+            r = run(sys.executable, script("lists.py"), "split", src, "-o", out, "--map", mp)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertEqual(len(read(out).strip().split("\n\n")), 5)
+            with open(out, "w", encoding="utf-8") as fh:  # two bullets joined into one
+                fh.write("a\n\nb\n\nc d\n\ne\n")
+            r = run(sys.executable, script("lists.py"), "restore", out, "--map", mp,
+                    "-o", os.path.join(tmp, "final.txt"))
+            self.assertEqual(r.returncode, 2)
+            self.assertFalse(os.path.exists(os.path.join(tmp, "final.txt")))
+
+
+class VaryBullets(unittest.TestCase):
+    def test_bullet_lead_only_for_a_bare_infinitive(self):
+        self.assertIsNotNone(rewrite.bullet_lead("Ofrecer talleres de identidad y autoestima.", 0))
+        self.assertIsNone(rewrite.bullet_lead("En caso de riesgo, activar el protocolo.", 0))
+        self.assertIsNone(rewrite.bullet_lead("Lugar de reunión: el salón parroquial de la iglesia.", 0))
+        long = "Promover " + "actividades deportivas y culturales " * 10
+        self.assertIsNone(rewrite.bullet_lead(long, 0))  # a long paragraph is prose, not a bullet
+
+    def test_the_verb_is_conjugated_in_a_rotating_form(self):
+        leads = [rewrite.bullet_lead("Ofrecer talleres de identidad y autoestima.", k)
+                 for k in range(4)]
+        self.assertEqual(leads, ["Ofrecemos", "Ofreceremos", "Vamos a ofrecer", "Queremos ofrecer"])
+        self.assertEqual(rewrite.bullet_lead("Proponer actividades nuevas.", 1), "Propondremos")
+        self.assertEqual(rewrite.bullet_lead("Reunirse con las familias.", 2), "Vamos a reunirnos")
+
+    def test_a_short_bullet_that_only_lost_one_word_counts_as_copied(self):
+        p = "Establecer acuerdos de confidencialidad, protección de menores y canalización a servicios especializados."
+        r = "Establecer acuerdos de confidencialidad, protección de menores, canalización a servicios especializados."
+        self.assertIsNone(rewrite.acceptable(p, r, set(), [], 0.6)[0])  # runs of 8 miss it
+        self.assertEqual(rewrite.acceptable(p, r, set(), [], 0.6, strict_short=True)[0], "(copied)")
+
+    def test_rewrite_uses_the_openers_and_keeps_titles(self):
+        """Canary: without --vary-bullets every bullet starts with its own infinitive."""
+        text = ("Acción 1. Crear un centro\n\n"
+                "Ofrecer horarios regulares para que los jóvenes puedan hablar.\n\n"
+                "Formar un equipo de agentes pastorales y de profesionales.\n")
+        with tempfile.TemporaryDirectory() as tmp:
+            fake = Rewrite._echo_llama(Rewrite(), tmp)
+            src, out = os.path.join(tmp, "in.txt"), os.path.join(tmp, "out.txt")
+            with open(src, "w", encoding="utf-8") as fh:
+                fh.write(text)
+            env = dict(os.environ, HUMANIZE_MODEL_DIR=tmp, HUMANIZE_LLAMA=fake)
+            r = run(sys.executable, script("rewrite.py"), src, "-o", out, "--vary-bullets",
+                    "--max-copied", "1", env=env)
+            self.assertIn(r.returncode, (0, 3), r.stdout + r.stderr)
+            blocks = read(out).strip().split("\n\n")
+            self.assertEqual(blocks[0], "Acción 1. Crear un centro")
+            self.assertTrue(blocks[1].startswith("Ofrecemos "), blocks[1])
+            self.assertTrue(blocks[2].startswith("Formaremos "), blocks[2])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -72,6 +72,66 @@ DRY_FLAGS = ["--min-p", "0.08", "--dry-multiplier", "0.8", "--dry-base", "1.75",
              "--dry-allowed-length", "2"]
 
 
+# --vary-bullets: a list of «Ofrecer…», «Formar…», «Establecer…», «Promover…» keeps its
+# skeleton after the model rewrites it, because it starts every bullet with the original's
+# first two words and changes two or three more: on a pastoral plan 72% of the words still
+# sat in runs of 4+ identical to the original and Grammarly scored the list 70-85%. The
+# infinitive alone is not the tell (another list of infinitives in the same document scored
+# 0%); the copying is. So the bullet starts from its own verb CONJUGATED in a form that
+# rotates from bullet to bullet and from try to try («Ofrecemos», «Formaremos», «Vamos a
+# establecer», «Queremos promover»), and a short block is held to a stricter copy check.
+INFINITIVE = re.compile(r"[A-ZÁÉÍÓÚ][a-záéíóúñü]*(?:ar|er|ir)(?:se|nos|los|las|lo|la|le|les)?")
+NOT_INFINITIVE = set("""lugar hogar mujer ayer placer poder deber ser taller altar
+    nivel azar collar pilar militar familiar similar particular popular titular regular
+    escolar celular solar dólar sur primer tercer cualquier líder carácter bienestar
+    malestar porvenir auxiliar singular preliminar mayor menor par mar bar""".split())
+BULLET_MAX_WORDS = 40
+SHORT_BLOCK = 25          # words: up to this, copying is measured in runs of SHORT_RUN
+SHORT_RUN = 4
+SHORT_MAX_COPIED = 0.5
+_FUTURE_STEM = {"decir": "dir", "poder": "podr", "saber": "sabr", "querer": "querr",
+                "haber": "habr", "caber": "cabr"}
+_FUTURE_SUFFIX = (("poner", "pondr"), ("tener", "tendr"), ("venir", "vendr"),
+                  ("hacer", "har"), ("salir", "saldr"), ("valer", "valdr"))
+_PRESENT = {"ser": "somos", "ir": "vamos", "haber": "hemos"}
+BULLET_FORMS = ("present", "future", "vamos", "queremos")
+
+
+def _nosotros(inf, form):
+    """«ofrecer» → «ofrecemos» / «ofreceremos». None when it is not safe (accented or
+    pronominal infinitives): the caller then uses «vamos a» + the infinitive."""
+    if form == "present":
+        if inf in _PRESENT:
+            return _PRESENT[inf]
+        return inf[:-2] + {"ar": "amos", "er": "emos", "ir": "imos"}[inf[-2:]]
+    if inf in _FUTURE_STEM:
+        return _FUTURE_STEM[inf] + "emos"
+    for end, stem in _FUTURE_SUFFIX:
+        if inf.endswith(end):
+            return inf[:-len(end)] + stem + "emos"
+    return inf + "emos"
+
+
+def bullet_lead(paragraph, k):
+    """The opening for a bullet that starts with a bare infinitive, or None. k counts the
+    bullets (and, inside one, the tries), so the form rotates."""
+    words = paragraph.split()
+    if not words or len(words) > BULLET_MAX_WORDS:
+        return None
+    w = words[0].strip(",;:«¿¡\"")
+    if not INFINITIVE.fullmatch(w) or w.lower() in NOT_INFINITIVE:
+        return None
+    inf = w.lower()
+    form = BULLET_FORMS[k % len(BULLET_FORMS)]
+    plain = re.fullmatch(r"[a-zñü]+(?:ar|er|ir)", inf)  # no accent, no enclitic pronoun
+    if form in ("present", "future") and plain:
+        verb = _nosotros(inf, form)
+        return verb[0].upper() + verb[1:]
+    if inf.endswith(("arse", "erse", "irse")):  # «Vamos a reunirnos», not «reunirse»
+        inf = inf[:-2] + "nos"
+    return ("Vamos a " if form != "queremos" else "Queremos ") + inf
+
+
 def build_prompt(paragraph, lead_words=None, lead=None):
     """The format HIP was trained on, plus the first words of the paragraph so the
     model keeps writing in the language of the original. `lead` replaces those words:
@@ -342,7 +402,7 @@ def encoding_problem(original, rewritten):
     return None
 
 
-def acceptable(p, r, wanted, concepts, max_copied):
+def acceptable(p, r, wanted, concepts, max_copied, strict_short=False):
     """(problem, copied share) for one try: problem is None when the try can be used."""
     if len(r.split()) < 0.6 * len(p.split()) or len(r.split()) > 1.6 * len(p.split()) + 10:
         return "(truncated or too long)", 0.0
@@ -355,6 +415,10 @@ def acceptable(p, r, wanted, concepts, max_copied):
         problem = guard(p, r)
         if problem:
             return problem, 0.0
+    if strict_short and len(p.split()) <= SHORT_BLOCK:
+        # runs of 8 miss a short bullet that only lost an «y» every seven words
+        share = check.copied_share(p, r, SHORT_RUN)
+        return ("(copied)" if share > min(max_copied, SHORT_MAX_COPIED) else None), share
     share = copied_share(p, r)
     return ("(copied)" if share > max_copied else None), share
 
@@ -409,6 +473,11 @@ def main():
                     help="how many of the original's first words open the rewrite (2); 0 lets "
                     "the model choose how to start, which breaks the original's skeleton in "
                     "short bullets")
+    ap.add_argument("--vary-bullets", dest="vary_bullets", action="store_true",
+                    help="Spanish lists: a bullet that starts with a bare infinitive («Ofrecer…») starts "
+                    "from that verb conjugated, in a form that rotates («Ofrecemos», «Formaremos», "
+                    "«Vamos a establecer», «Queremos promover»), and blocks of up to 25 words are "
+                    "held to a stricter copy check (runs of 4, at most 50%%)")
     ap.add_argument("--temperature", type=float, default=1.0,
                     help="sampling temperature (1.0); 1.1-1.2 gives more varied candidates")
     ap.add_argument("--candidates", type=int, metavar="N",
@@ -455,7 +524,11 @@ def main():
                   f"{len(paragraphs)}; --only needs the same count", file=sys.stderr)
             return 2
     output, untouched, copied, t0 = [], [], [], time.time()
+    varied = 0
     for i, p in enumerate(paragraphs, 1):
+        lead, bullet = args.lead, None
+        if args.vary_bullets and not args.lead and not is_title(p) and bullet_lead(p, 0):
+            bullet, varied = varied, varied + 1
         if kept is not None and i not in only:
             output.append(kept[i - 1])
             continue
@@ -464,7 +537,7 @@ def main():
             continue
         wanted = concepts_in(p, concepts)
         if args.candidates:
-            write_candidates(args, i, p, wanted, concepts)
+            write_candidates(args, i, p, wanted, concepts, lead, bullet)
             output.append(kept[i - 1])
             continue
         chosen, mostly_copied, lost = None, [], collections.Counter()
@@ -472,9 +545,12 @@ def main():
         for rnd in range(args.rescue + 1):
             temperature = min(1.4, args.temperature + 0.1 * rnd)
             for n in range(1, args.tries + 1):
+                if bullet is not None:  # another form on every try
+                    lead = bullet_lead(p, bullet + n - 1 + rnd * args.tries)
                 r = restore_percent_signs(p, rewrite_paragraph(p, args.threads, temperature,
-                                                               args.lead))
-                problem, share = acceptable(p, r, wanted, concepts, args.max_copied)
+                                                               lead))
+                problem, share = acceptable(p, r, wanted, concepts, args.max_copied,
+                                            strict_short=args.vary_bullets)
                 if problem == "(copied)":
                     mostly_copied.append((share, r))
                     continue
@@ -532,7 +608,7 @@ def main():
     return 3 if (untouched or copied) else 0
 
 
-def write_candidates(args, i, p, wanted, concepts):
+def write_candidates(args, i, p, wanted, concepts, lead=None, bullet=None):
     """Up to N acceptable versions of paragraph i, each in its own file. A detector can
     score two samples of the same paragraph 0% and 100%; measuring several and keeping the
     one that passes adds no chat fingerprint, since the same base model wrote them all."""
@@ -541,8 +617,11 @@ def write_candidates(args, i, p, wanted, concepts):
     found, tries = 0, 0
     while found < args.candidates and tries < args.candidates * args.tries:
         tries += 1
-        r = restore_percent_signs(p, rewrite_paragraph(p, args.threads, args.temperature, args.lead))
-        problem, share = acceptable(p, r, wanted, concepts, args.max_copied)
+        if bullet is not None:
+            lead = bullet_lead(p, bullet + tries - 1)
+        r = restore_percent_signs(p, rewrite_paragraph(p, args.threads, args.temperature, lead))
+        problem, share = acceptable(p, r, wanted, concepts, args.max_copied,
+                                    strict_short=args.vary_bullets)
         if problem:
             continue
         found += 1
