@@ -112,8 +112,10 @@ ABBREVIATION = re.compile(r"(?:^|\s)(?:Mr|Mrs|Ms|Dr|Prof|St|Sr|Sra|Srta|Dra|Lic|
                           r"approx|e\.g|i\.e|U\.S|p\.ej)\.$", re.I)
 
 
-# «1. Dimensión individual», «2.3. Método»: a list number opening a paragraph is not a sentence.
-LIST_NUMBER = re.compile(r"\d+(?:\.\d+)*\.$")
+# «1. Dimensión individual», «2.3. Método», «Acción 1. Crear un centro»: a list number (alone
+# or after one word) opening a paragraph is not a sentence. Without the word, a pastoral plan
+# came back with «Acción 1; crear un centro…» and «Acción 2 y desarrollar…».
+LIST_NUMBER = re.compile(r"(?:[A-ZÁÉÍÓÚÑ][a-záéíóúñü]+\s+)?\d+(?:\.\d+)*\.$")
 
 
 def split_sentences(paragraph):

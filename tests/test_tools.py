@@ -203,6 +203,13 @@ class Join(unittest.TestCase):
             self.assertEqual(read(new), read(FINAL_EN))
             self.assertEqual(read(old), read(FINAL_EN))
 
+    def test_a_word_and_a_list_number_open_a_heading_not_a_sentence(self):
+        """Canary: the old rule only knew «1.» alone and gave «Acción 1; crear un centro»."""
+        for h in ("Acción 1. Crear un centro parroquial de escucha",
+                  "Paso 2. Revisar el diagnóstico con los jóvenes"):
+            self.assertEqual(join.split_sentences(h), [h])
+            self.assertEqual(join.join_text(h + "\n", pauses=2).strip(), h)
+
 
 class Rewrite(unittest.TestCase):
     def test_prompt_with_spanish_lead(self):
