@@ -144,6 +144,15 @@ python3 <skill>/scripts/lists.py split pasted.txt -o 00-original.txt --map lists
 python3 <skill>/scripts/lists.py restore 02-final.txt --map lists.json -o 03-deliver.txt
 ```
 
+**If the person accepts prose instead of bullets**, `split --merge` turns each run of bullets into
+one paragraph and an inline numbered list («Criterios: 1.- A; 2.- B.») into one enumeration;
+headings stay. Then the essay recipe applies: `rewrite.py` (a `--lead` with a conjugated verb,
+such as «El centro ofrecerá», keeps the paragraph from starting with the original's infinitive)
+and `join.py --pauses 2`. Measured on the same pastoral plan, in Grammarly: bullets rewritten by
+the model and left as bullets 34-36%; the same bullets with two lines «polished» by Grammarly's
+own humanizer 52%; rewritten by a large chat model 84%. **Do not polish**: the base model's
+small awkward turns are what keep the score low.
+
 ### 6. Review and fix, BEFORE joining (blocking)
 
 ```bash
