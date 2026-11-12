@@ -470,7 +470,7 @@ class Rewrite(unittest.TestCase):
                 fh.write(
                     "import sys\n"
                     "args = sys.argv[1:]\n"
-                    f"open({seen!r}, 'w').write(' '.join(args) + '\\n' + open(args[args.index('-f') + 1], encoding='utf-8').read())\n"
+                    f"open({seen!r}, 'w', encoding='utf-8').write(' '.join(args) + '\\n' + open(args[args.index('-f') + 1], encoding='utf-8').read())\n"
                     "prompt = open(args[args.index('-f') + 1], encoding='utf-8').read()\n"
                     "source = prompt.split('<source_text>\\n')[1].split('\\n</source_text>')[0]\n"
                     "sys.stdout.buffer.write((' Dar cursos de identidad y de emociones a los muchachos.\\n</target_text>').encode('utf-8'))\n")
