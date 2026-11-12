@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+**A whole document at 0 % in Grammarly, annex table included (11-nov).**
+
+- **`check.py` flags shapes a detector marks in prose** (a NOTE, the exit code does not change):
+  «no X, sino Y» antithesis, a row with 2+ inline labels, the same field frame in 3+ paragraphs,
+  and «Label: que…». On the pastoral plan it flags the two annex versions that measured 22 % and
+  the section that measured ~16 %, and nothing in the final text that measured 0 %.
+- **SKILL: recipe for tables** — one sentence with a verb per row, shared content in the intro,
+  a lead per row. The calendar annex went 22 % → 0 %; the whole 1,312-word plan, 0 % in both halves.
+- **A local judge does not replace Grammarly** (documented, not shipped): Binoculars with
+  Qwen2.5-1.5B ranked 33 measured texts with Spearman rho +0.07; a multilingual RoBERTa
+  classifier gave 0.9997 to everything.
+
 **Lists keep their bullets and lose their skeleton (11-nov).**
 
 - **`lists.py split/restore`:** a list pasted with one «•» per line and no blank lines reached

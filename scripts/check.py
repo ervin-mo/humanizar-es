@@ -185,6 +185,45 @@ def negations(text):
     )
 
 
+# Shapes a detector flags even after the bullets are gone (pastoral plan, 11-nov-2026):
+#  - «no sustituye…, sino que expresa…»: the "not X but Y" antithesis. Swapping it for
+#    «no puede reemplazar…, pero puede ser…» took a 213-word section from ~16 % to 0 %.
+#  - a table row turned into "prose" that keeps its labels («Tema: X. Texto bíblico: Y.
+#    Resultado esperado: Z.»): 22 % with any lead; one sentence with a verb per row: 0 %.
+#  - a closing label followed by a verbless clause («Compromiso final: que cada joven…»).
+# A single «Propósito: …» line is fine (it sat in sections that measured 0 %).
+ANTITHESIS = re.compile(
+    r"\b(?:no|not)\b[^.;:!?]{1,90}?,?\s+(?:sino|but rather|but instead)\b", re.I)
+FRAME = re.compile(r"\b((?:el|la|los|las|the)\s+\w+(?:\s+\w+)?)\s*(?::|\b(?:es|son|is|are)\b)")
+LABEL = re.compile(r"(?:^|[.;]\s+)([A-ZÁÉÍÓÚÑ][\wáéíóúñü]*(?:\s+[\wáéíóúñü]+){0,2}):\s+(\S+)")
+
+
+def flagged_shapes(text):
+    """(paragraph number, kind, excerpt) for the shapes a detector flags in prose.
+    Kinds: 'antithesis', 'labels' (2+ inline labels = a table row), 'label-fragment'
+    (a label followed by «que …», a clause with no main verb)."""
+    found = []
+    for n, para in enumerate(paragraphs(text), 1):
+        for m in ANTITHESIS.finditer(para):
+            found.append((n, "antithesis", m.group(0)))
+        labels = LABEL.findall(para)
+        if len(labels) >= 2:
+            found.append((n, "labels", "; ".join(l for l, _ in labels)))
+        elif labels and labels[0][1].lower() in ("que", "that") and para.lstrip().startswith(labels[0][0]):
+            found.append((n, "label-fragment", para[:60]))
+    # The same field frame row after row («el tema es…», «el texto bíblico es…», «Texto
+    # bíblico: …») is the table showing through, even when every row has a different lead.
+    frames = {}
+    for n, para in enumerate(paragraphs(text), 1):
+        seen = set(m.group(1) for m in FRAME.finditer(norm(para)))
+        for fr in seen:
+            frames.setdefault(fr, []).append(n)
+    for fr, where in frames.items():
+        if len(where) >= 3:
+            found.append((where[0], "frame", f"«{fr}» in paragraphs {', '.join(map(str, where))}"))
+    return found
+
+
 def short_name(path, width=18):
     base = path.replace("\\", "/").split("/")[-1]
     return base if len(base) <= width else base[: width - 1] + "…"
@@ -292,6 +331,20 @@ def main():
                 print(f"  paragraph {n}: {share:.0%} copied")
             print("  Redo them: rewrite.py ... --only " + ",".join(str(n) for n, _ in same)
                   + " --tries 12 --temperature 1.2 (then --candidates if it still fails).")
+
+    advice = {
+        "antithesis": "«no X, sino Y» -> «no X, pero Y» or two sentences",
+        "labels": "a table row with its labels -> ONE sentence with a verb that absorbs the fields",
+        "label-fragment": "«Label: que…» -> a conjugated lead («Nuestro compromiso es que…»)",
+        "frame": "the same field in every row -> say each row in its own words, fields inside the sentence",
+    }
+    for f in args.variants:
+        shapes = flagged_shapes(texts[f])
+        if shapes:
+            print(f"\nNOTE: {short_name(f, 30)}: shapes detectors flag (not an error; fix them "
+                  "before measuring, without polishing the rest):")
+            for n, kind, excerpt in shapes:
+                print(f"  paragraph {n}: {kind}: «{excerpt[:70]}»  -> {advice[kind]}")
 
     return 1 if failed else 0
 

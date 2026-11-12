@@ -103,6 +103,46 @@ class Check(unittest.TestCase):
         self.assertEqual(r.returncode, 2)
 
 
+class Shapes(unittest.TestCase):
+    """Shapes Grammarly flagged in prose (pastoral plan, 11-nov-2026), and their fixes that measured 0 %."""
+
+    def kinds(self, text):
+        return [k for _, k, _ in check.flagged_shapes(text)]
+
+    def test_antithesis(self):
+        self.assertEqual(self.kinds("La celebración no sustituye la escucha, sino que expresa la fe."),
+                         ["antithesis"])
+        self.assertEqual(self.kinds("La celebración no puede reemplazar la escucha, pero puede ser fe."), [])
+
+    def test_table_row_with_labels(self):
+        row = "En el primer encuentro hablamos de confianza. Texto bíblico: Lucas 24,13-15. Resultado esperado: un grupo."
+        self.assertEqual(self.kinds(row), ["labels"])
+        prose = ("El primer encuentro es de confianza, con Lucas 24,13-15, con el fin de "
+                 "construir un grupo.")
+        self.assertEqual(self.kinds(prose), [])
+
+    def test_label_fragment_but_not_a_single_purpose_line(self):
+        self.assertEqual(self.kinds("Compromiso final: que cada joven encuentre apoyo."), ["label-fragment"])
+        self.assertEqual(self.kinds("Propósito: conocer la realidad de los jóvenes."), [])
+        self.assertEqual(self.kinds("Nuestro compromiso final es que cada joven encuentre apoyo."), [])
+
+    def test_same_frame_row_after_row(self):
+        rows = "\n\n".join(f"En el encuentro {n}, el tema es {t}." for n, t in
+                           ((1, "confianza"), (2, "realidad"), (3, "identidad")))
+        self.assertEqual(self.kinds(rows), ["frame"])
+
+    def test_cli_prints_a_note_without_failing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            a, b, c = (os.path.join(tmp, n) for n in ("a.txt", "b.txt", "c.txt"))
+            for path, text in ((a, "La fiesta no reemplaza la escucha."),
+                               (b, "La fiesta no sustituye la escucha, sino que la acompaña."),
+                               (c, "fiesta\nescucha\n")):
+                with open(path, "w", encoding="utf-8") as fh:
+                    fh.write(text)
+            r = run(sys.executable, script("check.py"), a, b, "--concepts", c)
+            self.assertIn("antithesis", r.stdout)
+
+
 class Join(unittest.TestCase):
     def test_joins_with_y_and_respects_names(self):
         t = ("Goku entrena todos los días. La serie lo muestra sin prisa. "

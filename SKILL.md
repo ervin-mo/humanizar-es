@@ -153,6 +153,17 @@ the model and left as bullets 34-36%; the same bullets with two lines «polished
 own humanizer 52%; rewritten by a large chat model 84%. **Do not polish**: the base model's
 small awkward turns are what keep the score low.
 
+**A table** (rows like «Tema: X · Actividades: Y · Texto bíblico: Z · Resultado esperado: W»,
+the usual annex of a plan) is the hardest case. Measured on the same plan (11-nov-2026), in
+Grammarly: the 8-row calendar as prose that kept its labels («…Texto bíblico: Lucas 24,13-15.
+Resultado esperado: un grupo…») **22%**; the same with a different lead on every row still
+**22%** (rows 14% and 30%); **one sentence with a verb per row**, the fields inside it
+(«El primer encuentro es de presentación y confianza, … basándonos en Lucas 24,13-15, con el fin
+de construir un grupo…») **0%**. Put the content shared by every row (duration, what each session
+always has) in the intro paragraph, not in a row. Give each row its own `--lead` («El primer
+encuentro es de», «En el segundo hablamos de», «La tercera semana toca», «Cerramos con la»).
+The whole 1,312-word plan, done this way, measured **0% in both halves**.
+
 ### 6. Review and fix, BEFORE joining (blocking)
 
 ```bash
@@ -194,6 +205,14 @@ python3 <skill>/scripts/rewrite.py 00-original.txt -o 01-rewritten.txt --concept
 Grammarly: its last half scored 3% twice while it carried hand fixes of four or more words
 (a few of them the original's own words put back); after redoing those paragraphs with
 `--only` and fixing only 1-2 words, 0%. The bibliography was not the cause.
+
+**`check.py` also prints a NOTE (not an error) for shapes Grammarly flagged in prose** on that
+plan: the «no X, sino que Y» antithesis (a 213-word section went from ~16% to 0% by changing it to
+the model's own «no puede reemplazar…, pero puede ser…»), a row that keeps 2+ labels, the same
+field frame row after row («el tema es…» in 3+ paragraphs), and a closing label followed by a
+verbless clause («Compromiso final: que…» → «Nuestro compromiso final es que…»). Fix those
+sentences only (pick another candidate or give a conjugated lead); a single «Propósito: …» line is
+fine. Spelling fixes after that did not move the score (five one-word fixes, still 0%).
 
 ### 7. Rebuild the rhythm
 
