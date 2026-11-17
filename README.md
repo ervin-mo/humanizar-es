@@ -328,13 +328,6 @@ No. It runs on CPU, at low priority, so your computer stays usable.
 3. **Selection costs time.** Each candidate is a model run (30–60 s per paragraph on an M4).
 4. **Detectors change.** This is a snapshot of October 2026.
 
-## Responsible use
-
-Made for text you sign and answer for: brand content, outreach, documentation, emails,
-drafts written with AI help. **Don't use it to hand in graded work as your own where AI is
-banned or must be disclosed.** That problem isn't technical; it's academic honesty.
-
----
 
 ## Project layout
 
